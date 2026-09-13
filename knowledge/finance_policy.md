@@ -7,6 +7,8 @@ Finance employees should have:
 - SAP
 - Slack
 
+Only Finance employees have get the above application access
+
 ## Privileged Access
 
 Finance Admin Portal is privileged access.
