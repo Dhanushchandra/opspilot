@@ -49,16 +49,45 @@ st.set_page_config(
 # Custom Enterprise CSS Theme — Completely strips Streamlit default header, deploy button & clutter
 st.markdown("""
 <style>
-    /* Completely hide Streamlit header, deploy button, hamburger menu, and footer */
-    header[data-testid="stHeader"] { display: none !important; visibility: hidden !important; height: 0 !important; }
-    header { display: none !important; visibility: hidden !important; height: 0 !important; }
-    footer { display: none !important; visibility: hidden !important; height: 0 !important; }
+    /* Clean, unobtrusive header: Keep sidebar collapse/expand control accessible while eliminating Streamlit clutter */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        height: 2.8rem !important;
+        z-index: 99999 !important;
+    }
+    
+    /* Strictly hide deploy button, hamburger menu, and developer toolbar */
     .stDeployButton { display: none !important; visibility: hidden !important; }
     #MainMenu { display: none !important; visibility: hidden !important; }
     [data-testid="stToolbar"] { display: none !important; visibility: hidden !important; }
     [data-testid="stDecoration"] { display: none !important; visibility: hidden !important; }
     [data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; }
+    footer { display: none !important; visibility: hidden !important; }
     .viewerBadge_container__r5tak { display: none !important; }
+
+    /* Ensure the sidebar collapsed control (open/close chevron button) remains fully visible and styled */
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"],
+    header [data-testid="collapsedControl"],
+    header button[aria-label*="sidebar" i],
+    header button[title*="sidebar" i] {
+        display: flex !important;
+        visibility: visible !important;
+        background-color: #1e293b !important;
+        color: #38bdf8 !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+        margin-top: 4px !important;
+        margin-left: 8px !important;
+        transition: all 0.2s ease !important;
+        z-index: 100000 !important;
+    }
+    [data-testid="collapsedControl"]:hover,
+    [data-testid="stSidebarCollapsedControl"]:hover {
+        background-color: #334155 !important;
+        color: #7dd3fc !important;
+        border-color: #38bdf8 !important;
+    }
     
     /* Clean, spacious layout */
     .main { background-color: #0b0f19; }
@@ -362,27 +391,28 @@ with tabs[0]:
                 elif t["status"] == "SKIPPED":
                     badge_class = "badge-skipped"
 
-                st.markdown(f"""
-                <div class="trace-item">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong>{t['step']}</strong>
-                        <span class="{badge_class}">{t['status']}</span>
-                    </div>
-                    <div style="color: #cbd5e1; margin-top: 3px;">{t['message']}</div>
-                    <div style="color: #64748b; font-size: 11px; margin-top: 2px;">{t['timestamp']}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                trace_html = (
+                    f'<div class="trace-item">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                    f'<strong>{t["step"]}</strong>'
+                    f'<span class="{badge_class}">{t["status"]}</span>'
+                    f'</div>'
+                    f'<div style="color:#cbd5e1;margin-top:3px;">{t["message"]}</div>'
+                    f'<div style="color:#64748b;font-size:11px;margin-top:2px;">{t["timestamp"]}</div>'
+                    f'</div>'
+                )
+                st.markdown(trace_html, unsafe_allow_html=True)
 
         with res_tab3:
             st.markdown("##### 🌌 **High-Dimensional Policy Embedding Projection**")
             st.caption("Visualizing 3,072-dimensional vector space reduced to 3D PCA coordinates with your query's cosine distance.")
             req_prompt = state.get("request", "")
             fig_3d = generate_3d_vector_space_figure(query_text=req_prompt)
-            st.plotly_chart(fig_3d, use_container_width=True)
+            st.plotly_chart(fig_3d, use_container_width=True, key="workbench_vector_3d")
 
             st.markdown("##### 🎯 **Cosine Similarity Ranking to Policy Chunks**")
             fig_sim = generate_cosine_similarity_bar_chart(query_text=req_prompt)
-            st.plotly_chart(fig_sim, use_container_width=True)
+            st.plotly_chart(fig_sim, use_container_width=True, key="workbench_cosine_bar")
 
         with res_tab4:
             executions = state.get("tool_executions", [])
@@ -449,25 +479,26 @@ with tabs[1]:
         st.caption("Rotate, pan, zoom, and hover over nodes to inspect semantic clusters and distance rays.")
         with st.spinner("Computing 3,072-D embedding and PCA projection..."):
             fig_3d = generate_3d_vector_space_figure(active_query)
-            st.plotly_chart(fig_3d, use_container_width=True)
+            st.plotly_chart(fig_3d, use_container_width=True, key="explorer_vector_3d")
 
     with col_v2:
         st.markdown("##### 🎯 **Cosine Similarity Ranking**")
         st.caption("Angular alignment in high-dimensional space: cos(θ) = (A · B) / (||A|| ||B||)")
         fig_sim = generate_cosine_similarity_bar_chart(active_query)
-        st.plotly_chart(fig_sim, use_container_width=True)
+        st.plotly_chart(fig_sim, use_container_width=True, key="explorer_cosine_bar")
 
-        st.markdown("""
-        <div style="background: #131b2e; border: 1px solid #1e293b; border-radius: 8px; padding: 14px; margin-top: 10px;">
-            <div style="color: #38bdf8; font-weight: 600; font-size: 13px; margin-bottom: 6px;">📐 High-Dimensional Geometry & Mechanics</div>
-            <div style="color: #94a3b8; font-size: 12px; line-height: 1.6;">
-                • <b>Embedding Dimension:</b> 3,072 latent semantic dimensions (Google Gemini text-embedding)<br>
-                • <b>Projection Algorithm:</b> Linear Principal Component Analysis (PCA)<br>
-                • <b>Variance Preservation:</b> Top 3 principal orthogonal axes<br>
-                • <b>Distance Metric:</b> Angular Cosine Proximity (invariant to text length)
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div style="background:#131b2e;border:1px solid #1e293b;border-radius:8px;padding:14px;margin-top:10px;">'
+            '<div style="color:#38bdf8;font-weight:600;font-size:13px;margin-bottom:6px;">📐 High-Dimensional Geometry & Mechanics</div>'
+            '<div style="color:#94a3b8;font-size:12px;line-height:1.6;">'
+            '• <b>Embedding Dimension:</b> 3,072 latent semantic dimensions (Google Gemini text-embedding)<br>'
+            '• <b>Projection Algorithm:</b> Linear Principal Component Analysis (PCA)<br>'
+            '• <b>Variance Preservation:</b> Top 3 principal orthogonal axes<br>'
+            '• <b>Distance Metric:</b> Angular Cosine Proximity (invariant to text length)'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
     st.markdown("---")
     st.markdown("#### 📚 **Indexed Knowledge Base Chunks in Vectorstore**")
@@ -499,26 +530,29 @@ with tabs[2]:
     # Metrics Row
     m1, m2, m3 = st.columns(3)
     with m1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-val" style="color: #fbbf24;">{len(pending)}</div>
-            <div class="metric-lbl">Pending Authorizations</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-val" style="color: #fbbf24;">{len(pending)}</div>'
+            f'<div class="metric-lbl">Pending Authorizations</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
     with m2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-val" style="color: #34d399;">{len(approved)}</div>
-            <div class="metric-lbl">Approved Entitlements</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-val" style="color: #34d399;">{len(approved)}</div>'
+            f'<div class="metric-lbl">Approved Entitlements</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
     with m3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-val" style="color: #f87171;">{len(rejected)}</div>
-            <div class="metric-lbl">Rejected Requests</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-val" style="color: #f87171;">{len(rejected)}</div>'
+            f'<div class="metric-lbl">Rejected Requests</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
 
     st.markdown("---")
     st.markdown("#### ⏳ Active Review Queue")

@@ -317,23 +317,24 @@ def render_workflow_flowchart_html(trace: List[Dict[str, Any]], current_status: 
 
         arrow = '<div style="color: #38bdf8; font-size: 16px; margin: 0 4px;">➔</div>' if idx < len(nodes) - 1 else ''
 
-        card_html = f"""
-        <div style="display: flex; align-items: center; margin-bottom: 6px;">
-            <div style="background: {bg_color}; border: 1px solid {border_color}; box-shadow: 0 0 10px {glow_color}; border-radius: 8px; padding: 6px 12px; min-width: 140px; text-align: center;">
-                <div style="font-size: 14px;">{node['icon']}</div>
-                <div style="font-weight: 600; font-size: 11px; color: {text_color};">{node['label']}</div>
-                <div style="font-size: 9px; color: #94a3b8; margin-top: 2px;">{status}</div>
-            </div>
-            {arrow}
-        </div>
-        """
+        card_html = (
+            f'<div style="display:inline-flex;align-items:center;margin:4px 0;">'
+            f'<div style="background:{bg_color};border:1px solid {border_color};box-shadow:0 0 10px {glow_color};border-radius:8px;padding:6px 12px;min-width:130px;text-align:center;">'
+            f'<div style="font-size:15px;line-height:1.2;">{node["icon"]}</div>'
+            f'<div style="font-weight:600;font-size:11px;color:{text_color};margin-top:2px;white-space:nowrap;">{node["label"]}</div>'
+            f'<div style="font-size:9px;color:#94a3b8;margin-top:2px;">{status}</div>'
+            f'</div>'
+            f'{arrow}'
+            f'</div>'
+        )
         nodes_html.append(card_html)
 
-    full_html = f"""
-    <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin-bottom: 16px;">
-        <div style="display: flex; align-items: center; justify-content: flex-start; min-width: 1100px;">
-            {''.join(nodes_html)}
-        </div>
-    </div>
-    """
+    nodes_str = "".join(nodes_html)
+    full_html = (
+        f'<div style="background:#0b0f19;border:1px solid #1e293b;border-radius:10px;padding:12px 14px;overflow-x:auto;white-space:nowrap;margin-bottom:12px;">'
+        f'<div style="display:inline-flex;align-items:center;gap:3px;">'
+        f'{nodes_str}'
+        f'</div>'
+        f'</div>'
+    )
     return full_html
