@@ -22,3 +22,12 @@
 5. **Legacy Systems & RPA**:
    - For legacy enterprise applications lacking modern REST APIs (such as the Legacy HR portal), automated provisioning must be executed via controlled browser automation (Playwright RPA).
    - All RPA workflows must verify DOM submission success before confirming execution.
+
+6. **Departmental Application Restrictions**:
+   - Employees may only be granted access to applications explicitly permitted for their assigned department.
+   - Cross-department applications are strictly prohibited:
+     - **Sales Department**: Permitted applications are `Salesforce`, `Gong`, and `Sales Admin Portal` (privileged).
+     - **Finance Department**: Permitted applications are `SAP` and `Finance Admin Portal` (privileged).
+     - **Engineering Department**: Permitted applications are `GitHub`.
+     - **Company-Wide Tools**: `Slack` and `Jira` are approved for all departments.
+   - Any request to grant an application outside an employee's department must be rejected with an explicit departmental mismatch policy violation.

@@ -6,6 +6,7 @@ from guardrails.policies import (
     check_prompt_injection,
     resolve_employee_identity,
     check_privileged_access_guardrail,
+    check_department_permission,
     validate_catalog_and_duplicates
 )
 
@@ -84,3 +85,33 @@ def test_validate_catalog_and_duplicates():
     # Fake tool should be rejected
     assert len(val["rejected_actions"]) == 1
     assert val["rejected_actions"][0]["application_id"] == "app_fake_unknown"
+
+
+def test_department_permission_guardrail():
+    # Sales app for Finance employee -> Blocked
+    res_disallowed = check_department_permission("app_salesforce", "Finance")
+    assert res_disallowed["allowed"] is False
+    assert "Department policy violation" in res_disallowed["reason"]
+
+    # Sales app for Sales employee -> Allowed
+    res_allowed = check_department_permission("app_salesforce", "Sales")
+    assert res_allowed["allowed"] is True
+
+    # Company-wide app (Slack) for any department -> Allowed
+    res_slack = check_department_permission("app_slack", "Finance")
+    assert res_slack["allowed"] is True
+
+    # Validate catalog & duplicates with department rejection
+    catalog = [
+        {"id": "app_salesforce", "name": "Salesforce", "sensitive": 0},
+        {"id": "app_sap", "name": "SAP", "sensitive": 0}
+    ]
+    planned = [
+        {"application_id": "app_salesforce", "reason": "CRM tool"},
+        {"application_id": "app_sap", "reason": "ERP tool"}
+    ]
+    val = validate_catalog_and_duplicates(planned, catalog, existing_access=[], employee_department="Finance")
+    # SAP allowed for Finance
+    assert any(a["application_id"] == "app_sap" for a in val["actions_to_execute"])
+    # Salesforce rejected for Finance
+    assert any(r["application_id"] == "app_salesforce" for r in val["rejected_actions"])

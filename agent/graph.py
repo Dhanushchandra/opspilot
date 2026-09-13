@@ -196,8 +196,15 @@ def validate_plan_node(state: OpsPilotState) -> Dict[str, Any]:
     applications = raw_plan.get("applications", [])
     catalog = state.get("catalog", [])
     existing_access = state.get("existing_access", [])
+    emp = state.get("employee")
+    emp_dept = emp.get("department") if emp else None
 
-    val_res = validate_catalog_and_duplicates(applications, catalog, existing_access)
+    val_res = validate_catalog_and_duplicates(
+        planned_applications=applications,
+        catalog=catalog,
+        existing_access=existing_access,
+        employee_department=emp_dept
+    )
 
     actions = val_res["actions_to_execute"]
     skipped = val_res["skipped_actions"]
@@ -209,7 +216,7 @@ def validate_plan_node(state: OpsPilotState) -> Dict[str, Any]:
     for s in skipped:
         traces.append(_create_trace("Duplicate Check", "SKIPPED", s["reason"]))
     for r in rejected:
-        traces.append(_create_trace("Catalog Validation", "BLOCKED", r["reason"]))
+        traces.append(_create_trace("Policy Validation", "BLOCKED", r["reason"]))
 
     return {
         "validated_actions": actions,
@@ -451,9 +458,10 @@ def generate_response_node(state: OpsPilotState) -> Dict[str, Any]:
 
     if rejected:
         lines.append("")
-        lines.append("### Rejected Actions")
+        lines.append("### Rejected / Disallowed Actions")
         for r in rejected:
-            lines.append(f"🚫 **{r['application_id']}**: {r['reason']}")
+            app_label = r.get("application_name") or r.get("application_id")
+            lines.append(f"🚫 **{app_label}**: {r['reason']}")
 
     if ticket:
         lines.append("")

@@ -98,16 +98,58 @@ def check_privileged_access_guardrail(
     }
 
 
+# Department-specific authorized applications mapping
+DEPARTMENT_PERMITTED_APPLICATIONS = {
+    "app_salesforce": ["Sales"],
+    "app_gong": ["Sales"],
+    "app_sales_admin": ["Sales"],
+    "app_sap": ["Finance"],
+    "app_finance_admin": ["Finance"],
+    "app_github": ["Engineering"],
+    "app_slack": ["Sales", "Finance", "Engineering", "Marketing", "Legal"],
+    "app_jira": ["Sales", "Finance", "Engineering", "Marketing", "Legal"]
+}
+
+
+def check_department_permission(
+    application_id: str,
+    department: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Ensure the employee's department permits access to the requested application.
+    Applications not in the restricted map or company-wide tools are permitted across all departments.
+    """
+    if not department:
+        return {"allowed": True, "reason": "No department specified; permitting access."}
+
+    permitted_depts = DEPARTMENT_PERMITTED_APPLICATIONS.get(application_id)
+    if permitted_depts is not None:
+        dept_clean = department.strip().lower()
+        allowed = any(dept_clean == p.lower() for p in permitted_depts)
+        if not allowed:
+            return {
+                "allowed": False,
+                "permitted_departments": permitted_depts,
+                "reason": (
+                    f"Department policy violation: Application '{application_id}' is restricted to "
+                    f"{', '.join(permitted_depts)} department(s). Employee is in '{department}'."
+                )
+            }
+    return {"allowed": True, "reason": "Department authorization verified."}
+
+
 def validate_catalog_and_duplicates(
     planned_applications: List[Dict[str, Any]],
     catalog: List[Dict[str, Any]],
-    existing_access: List[Dict[str, Any]]
+    existing_access: List[Dict[str, Any]],
+    employee_department: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Validate requested applications against catalog and existing access:
+    Validate requested applications against catalog, department boundaries, and existing access:
     1. Reject applications not found in catalog.
-    2. Skip applications the employee already has access to.
-    3. Return actions to perform and skipped/rejected reasons.
+    2. Reject applications where employee's department is not permitted.
+    3. Skip applications the employee already has access to.
+    4. Return actions to perform and skipped/rejected reasons.
     """
     valid_catalog_ids = {app["id"]: app for app in catalog}
     existing_app_ids = {acc["id"] if isinstance(acc, dict) and "id" in acc else acc.get("application_id") for acc in existing_access}
@@ -131,7 +173,18 @@ def validate_catalog_and_duplicates(
 
         app_info = valid_catalog_ids[app_id]
 
-        # 2. Duplicate check
+        # 2. Department boundary check
+        if employee_department:
+            dept_res = check_department_permission(app_id, employee_department)
+            if not dept_res["allowed"]:
+                rejected_actions.append({
+                    "application_id": app_id,
+                    "application_name": app_info["name"],
+                    "reason": dept_res["reason"]
+                })
+                continue
+
+        # 3. Duplicate check
         if app_id in existing_app_ids:
             skipped_actions.append({
                 "application_id": app_id,
@@ -140,7 +193,7 @@ def validate_catalog_and_duplicates(
             })
             continue
 
-        # 3. Approved for execution
+        # 4. Approved for execution
         actions_to_execute.append({
             "application_id": app_id,
             "application_name": app_info["name"],
