@@ -21,6 +21,15 @@ if str(root_dir) not in sys.path:
 import streamlit as st
 import pandas as pd
 
+# Sync Streamlit Secrets to os.environ for cloud deployments (Streamlit Cloud, etc.)
+try:
+    if hasattr(st, "secrets"):
+        for _k, _v in st.secrets.items():
+            if isinstance(_v, (str, int, float, bool)) and _k not in os.environ:
+                os.environ[_k] = str(_v)
+except Exception:
+    pass
+
 from integrations import database
 from guardrails.policies import SENSITIVE_APPLICATIONS
 from rag.pipeline import load_policy_documents, index_knowledge_base
@@ -222,19 +231,27 @@ def init_system_resources():
 init_system_resources()
 
 # Pre-configured Enterprise Credentials
+def _get_credential(key: str, default: str) -> str:
+    try:
+        if hasattr(st, "secrets") and key in st.secrets:
+            return str(st.secrets[key])
+    except Exception:
+        pass
+    return os.getenv(key, default)
+
 VALID_USERS = {
     "admin": {
-        "password": os.getenv("OPSPILOT_ADMIN_PASSWORD", "opspilot2026"),
+        "password": _get_credential("OPSPILOT_ADMIN_PASSWORD", "opspilot2026"),
         "role": "Enterprise Administrator",
         "department": "IT Infrastructure & Security"
     },
     "operator": {
-        "password": os.getenv("OPSPILOT_OPERATOR_PASSWORD", "operator2026"),
+        "password": _get_credential("OPSPILOT_OPERATOR_PASSWORD", "operator2026"),
         "role": "IT Operations Lead",
         "department": "IT Operations"
     },
     "auditor": {
-        "password": os.getenv("OPSPILOT_AUDITOR_PASSWORD", "audit2026"),
+        "password": _get_credential("OPSPILOT_AUDITOR_PASSWORD", "audit2026"),
         "role": "Security Compliance Auditor",
         "department": "Information Security"
     }
@@ -274,8 +291,8 @@ if not st.session_state.authenticated:
     with col_l2:
         with st.form("opspilot_login_form"):
             st.markdown("#### **Authenticate Session**")
-            input_user = st.text_input("Username / Enterprise ID", value="admin", placeholder="e.g. admin", key="login_username")
-            input_pass = st.text_input("Password", type="password", value="opspilot2026", placeholder="Enter secure password", key="login_password")
+            input_user = st.text_input("Username / Enterprise ID", placeholder="Enter username (e.g. admin)", key="login_username")
+            input_pass = st.text_input("Password", type="password", placeholder="Enter password", key="login_password")
             submit_login = st.form_submit_button("Sign In to Control Center", use_container_width=True)
 
             if submit_login:
@@ -293,25 +310,15 @@ if not st.session_state.authenticated:
                     st.error("[AUTHENTICATION REJECTED] Invalid username or password.")
 
         st.markdown("""
-        <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 14px 16px; margin-top: 14px;">
-            <div style="color: #38bdf8; font-size: 11px; font-weight: 600; font-family: monospace; margin-bottom: 6px;">
-                [PRE-CONFIGURED CREDENTIALS]
+        <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 12px 16px; margin-top: 14px;">
+            <div style="color: #38bdf8; font-size: 11px; font-weight: 600; font-family: monospace; margin-bottom: 4px;">
+                [ACCESS RESTRICTED]
             </div>
-            <div style="font-size: 12px; color: #94a3b8; line-height: 1.6;">
-                • <b>Admin:</b> <code>admin</code> / <code>opspilot2026</code> (Full Orchestration & Control)<br>
-                • <b>Operator:</b> <code>operator</code> / <code>operator2026</code> (IT Operations Lead)<br>
-                • <b>Auditor:</b> <code>auditor</code> / <code>audit2026</code> (Compliance & Audit)
+            <div style="font-size: 12px; color: #94a3b8; line-height: 1.5;">
+                Authorized personnel only. All access attempts are monitored, logged, and audited in compliance with enterprise governance standards.
             </div>
         </div>
         """, unsafe_allow_html=True)
-
-        if st.button("Instant Quick Login as Admin", use_container_width=True, key="quick_login_btn"):
-            st.session_state.authenticated = True
-            st.session_state.auth_user = {
-                "username": "admin",
-                **VALID_USERS["admin"]
-            }
-            st.rerun()
 
     st.stop()
 
