@@ -5,3 +5,8 @@ __pycache__/
 .chromadb/
 .pytest_cache/
 .vscode/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+opspilot.db
