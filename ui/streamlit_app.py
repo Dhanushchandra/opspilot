@@ -221,7 +221,32 @@ def init_system_resources():
 
 init_system_resources()
 
+# Pre-configured Enterprise Credentials
+VALID_USERS = {
+    "admin": {
+        "password": os.getenv("OPSPILOT_ADMIN_PASSWORD", "opspilot2026"),
+        "role": "Enterprise Administrator",
+        "department": "IT Infrastructure & Security"
+    },
+    "operator": {
+        "password": os.getenv("OPSPILOT_OPERATOR_PASSWORD", "operator2026"),
+        "role": "IT Operations Lead",
+        "department": "IT Operations"
+    },
+    "auditor": {
+        "password": os.getenv("OPSPILOT_AUDITOR_PASSWORD", "audit2026"),
+        "role": "Security Compliance Auditor",
+        "department": "Information Security"
+    }
+}
+
 # Session State Initialization
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if "auth_user" not in st.session_state:
+    st.session_state.auth_user = None
+
 if "selected_prompt" not in st.session_state:
     st.session_state.selected_prompt = "Onboard Sarah Thomas as a Sales Account Executive. Update the legacy HR system, give her the applications required by Sales policy, and create an IT ticket."
 
@@ -232,11 +257,87 @@ if "eval_results" not in st.session_state:
     st.session_state.eval_results = None
 
 # -------------------------------------------------------------
-# Sidebar Navigation & Operational Settings
+# Enterprise Authentication Portal (Login Screen)
+# -------------------------------------------------------------
+if not st.session_state.authenticated:
+    st.markdown("""
+    <div style="max-width: 520px; margin: 40px auto 20px auto; text-align: center;">
+        <div style="display: inline-block; padding: 4px 14px; background: #0f172a; border: 1px solid #0284c7; border-radius: 20px; font-size: 11px; font-weight: 700; color: #38bdf8; letter-spacing: 1px; font-family: monospace; margin-bottom: 12px;">
+            ENTERPRISE SINGLE SIGN-ON GATEWAY
+        </div>
+        <h1 style="font-size: 26px; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">OpsPilot Control Center</h1>
+        <p style="color: #94a3b8; font-size: 13px; margin-bottom: 24px;">Autonomous IT Operations, Access Governance, and Robotic Process Automation</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_l1, col_l2, col_l3 = st.columns([1, 1.3, 1])
+    with col_l2:
+        with st.form("opspilot_login_form"):
+            st.markdown("#### **Authenticate Session**")
+            input_user = st.text_input("Username / Enterprise ID", value="admin", placeholder="e.g. admin", key="login_username")
+            input_pass = st.text_input("Password", type="password", value="opspilot2026", placeholder="Enter secure password", key="login_password")
+            submit_login = st.form_submit_button("Sign In to Control Center", use_container_width=True)
+
+            if submit_login:
+                user_clean = input_user.strip().lower()
+                if user_clean in VALID_USERS and input_pass == VALID_USERS[user_clean]["password"]:
+                    st.session_state.authenticated = True
+                    st.session_state.auth_user = {
+                        "username": user_clean,
+                        **VALID_USERS[user_clean]
+                    }
+                    st.success(f"[AUTHENTICATED] Session initialized as {VALID_USERS[user_clean]['role']}.")
+                    time.sleep(0.3)
+                    st.rerun()
+                else:
+                    st.error("[AUTHENTICATION REJECTED] Invalid username or password.")
+
+        st.markdown("""
+        <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 14px 16px; margin-top: 14px;">
+            <div style="color: #38bdf8; font-size: 11px; font-weight: 600; font-family: monospace; margin-bottom: 6px;">
+                [PRE-CONFIGURED CREDENTIALS]
+            </div>
+            <div style="font-size: 12px; color: #94a3b8; line-height: 1.6;">
+                • <b>Admin:</b> <code>admin</code> / <code>opspilot2026</code> (Full Orchestration & Control)<br>
+                • <b>Operator:</b> <code>operator</code> / <code>operator2026</code> (IT Operations Lead)<br>
+                • <b>Auditor:</b> <code>auditor</code> / <code>audit2026</code> (Compliance & Audit)
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("Instant Quick Login as Admin", use_container_width=True, key="quick_login_btn"):
+            st.session_state.authenticated = True
+            st.session_state.auth_user = {
+                "username": "admin",
+                **VALID_USERS["admin"]
+            }
+            st.rerun()
+
+    st.stop()
+
+# -------------------------------------------------------------
+# Sidebar Navigation & Operational Settings (Authenticated)
 # -------------------------------------------------------------
 with st.sidebar:
     st.markdown("### **OPSPILOT CONTROL**")
     st.caption("Autonomous Enterprise IT Operations Platform")
+
+    curr_user = st.session_state.get("auth_user") or {}
+    st.markdown(
+        f"""
+        <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 8px 10px; margin: 8px 0 12px 0;">
+            <div style="font-size: 10px; color: #38bdf8; font-family: monospace; font-weight: 700;">[SESSION ACTIVE]</div>
+            <div style="font-size: 12px; color: #f8fafc; font-weight: 600;">{curr_user.get('username', 'admin')}</div>
+            <div style="font-size: 10px; color: #94a3b8;">{curr_user.get('role', 'Enterprise Administrator')}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    if st.button("Sign Out", use_container_width=True, key="sign_out_btn"):
+        st.session_state.authenticated = False
+        st.session_state.auth_user = None
+        st.rerun()
 
     st.markdown("---")
     st.markdown("#### **GOVERNANCE CONFIGURATION**")
