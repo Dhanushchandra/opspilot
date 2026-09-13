@@ -134,8 +134,9 @@ opspilot/
 │   ├── test_rag.py             # Document indexing & retrieval tests
 │   └── test_agent.py           # End-to-end LangGraph integration tests
 │
-├── ui/                         # Enterprise Management Dashboard
+├── ui/                         # Enterprise Management Dashboard & Visualizers
 │   ├── streamlit_app.py        # Multi-tab Streamlit control center
+│   ├── visualizer.py           # 3D PCA vector projection, cosine rankings & animated state flowcharts
 │   └── __init__.py
 │
 ├── agent.py                    # Root CLI execution entrypoint
@@ -189,37 +190,39 @@ python run.py --evals
 
 The Streamlit UI (`ui/streamlit_app.py`) provides an enterprise console designed for observing, altering, and testing every component:
 
-1. **🚀 Agent Console**:
-   - Natural language dispatcher with 10+ preset test scenarios.
-   - Live step-by-step execution timeline with status badges (`SUCCESS`, `WARNING`, `BLOCKED`, `SKIPPED`).
-   - Tool invocation inspector displaying exact JSON arguments, results, and latency in milliseconds.
-   - Interactive Human-in-the-Loop authorization banner allowing one-click approval and workflow resumption.
-2. **🛡️ Approvals & Governance Hub**:
-   - Metrics for active pending, approved, and rejected authorization requests.
-   - Interactive review queue with "Approve" and "Reject" buttons and reviewer comment logs.
-3. **🏢 Enterprise Data (Observe & Alter)**:
+1. **🚀 Agent Console (Live Workbench)**:
+   - One-click operational scenario presets (Sales Onboarding, Privileged Access, Identity Ambiguity, Prompt Injection, Legacy RPA).
+   - Mode switcher: **Auto-Approve** (simulated manager) or **Human-in-the-Loop** (pauses for manual review).
+   - **⚡ Animated LangGraph State Flowchart**: Interactive visual graph displaying live step progression, node latencies, and execution outcomes.
+   - Comprehensive result tabs: Executive Summary, Step-by-Step Trace, 3D Semantic Space & Similarity, Tool Execution Latency, and Retrieved Policies.
+2. **🌌 3D Semantic Vector Space & High-Dimensional Geometry**:
+   - Interactive 3D vector scatter plot projecting 3,072-dimensional Gemini embeddings down to 3D via Principal Component Analysis (PCA).
+   - Dynamic query vector ray projection showing cosine similarity vectors connecting query points to policy chunks.
+   - Real-time cosine proximity ranking bar chart ($\cos(\theta) = \frac{A \cdot B}{\|A\| \|B\|}$).
+   - Preset test vectors for role onboarding, privileged permissions, and prompt injection attacks.
+   - Complete vectorstore chunk explorer with character counts and text snippets.
+3. **🛡️ Approvals & Governance Hub**:
+   - Live queue of pending authorization requests for elevated privileges.
+   - Instant 1-click Approve / Deny buttons with state re-execution.
+   - Comprehensive approval audit history table.
+4. **🏢 Enterprise Data (Observe & Alter)**:
    - Full CRUD data management for Employees, Application Catalog, and IAM Entitlements.
    - Toggle the "Sensitive / Privileged" flag on any app in real time to observe how guardrails respond.
    - Revoke access from employees (e.g. revoke Sarah's Slack) to test idempotent re-granting.
    - ITSM ticket inspection table.
-4. **📚 Knowledge Base & Policy Studio**:
+5. **📚 Knowledge Base & Policy Studio**:
    - In-app Markdown editor for enterprise policy documents.
    - Save & Re-index button that rebuilds the ChromaDB vectorstore live.
    - Semantic policy search sandbox to test retrieval accuracy.
-5. **🖥️ Legacy HR & RPA Console**:
+6. **🖥️ Legacy HR & RPA Console**:
    - Direct view of the legacy employee database.
    - Trigger manual Playwright browser automation with custom employee inputs.
-6. **📊 Reliability & Evaluation Benchmark**:
+7. **📊 Reliability & Evaluation Benchmark**:
    - One-click benchmark runner executing all 21 test cases.
-   - Real-time scorecard displaying:
-     - Task Completion Rate (%)
-     - Policy Compliance Rate (%)
-     - Tool Selection Accuracy (%)
-     - Duplicate Prevention Rate (%)
-     - Verification Success Rate (%)
-     - Human Intervention Rate (%)
-     - Average Latency (ms)
+   - Real-time scorecard displaying KPI metrics.
    - Deep-dive inspector for every test case showing expected vs. actual outcomes.
+8. **🔍 Execution Audit Logs & Telemetry**:
+   - Step latency breakdown, full state transition snapshots, and tool execution traces.
 
 ---
 
