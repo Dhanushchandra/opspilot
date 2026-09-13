@@ -384,11 +384,12 @@ def handle_ticketing_node(state: OpsPilotState) -> Dict[str, Any]:
     })
 
     ticket = ticket_res["result"] if ticket_res["status"] == "SUCCESS" else None
+    ticket_msg = f"Created ticket {ticket.get('ticket_id')} (Status: OPEN)" if (ticket and isinstance(ticket, dict)) else "ITSM ticket creation skipped or failed"
 
     return {
         "ticket": ticket,
         "trace": state["trace"] + [_create_trace(
-            "ITSM Ticketing", "SUCCESS", f"Created ticket {ticket.get('ticket_id')} (Status: OPEN)", ticket
+            "ITSM Ticketing", "SUCCESS" if ticket else "WARNING", ticket_msg, ticket
         )]
     }
 

@@ -49,44 +49,80 @@ st.set_page_config(
 # Custom Enterprise CSS Theme — Completely strips Streamlit default header, deploy button & clutter
 st.markdown("""
 <style>
-    /* Clean, unobtrusive header: Keep sidebar collapse/expand control accessible while eliminating Streamlit clutter */
+    /* Strictly hide deploy button, hamburger menu, status indicator, and footer */
+    [data-testid="stAppDeployButton"],
+    .stAppDeployButton,
+    .stDeployButton {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    #MainMenu,
+    [data-testid="stMainMenu"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    [data-testid="stDecoration"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    [data-testid="stStatusWidget"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    footer {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    .viewerBadge_container__r5tak {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Clean transparent header */
     header[data-testid="stHeader"] {
         background: transparent !important;
-        height: 2.8rem !important;
-        z-index: 99999 !important;
     }
-    
-    /* Strictly hide deploy button, hamburger menu, and developer toolbar */
-    .stDeployButton { display: none !important; visibility: hidden !important; }
-    #MainMenu { display: none !important; visibility: hidden !important; }
-    [data-testid="stToolbar"] { display: none !important; visibility: hidden !important; }
-    [data-testid="stDecoration"] { display: none !important; visibility: hidden !important; }
-    [data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; }
-    footer { display: none !important; visibility: hidden !important; }
-    .viewerBadge_container__r5tak { display: none !important; }
 
-    /* Ensure the sidebar collapsed control (open/close chevron button) remains fully visible and styled */
-    [data-testid="collapsedControl"],
+    /* Ensure the sidebar itself has a distinct dark border and background */
+    section[data-testid="stSidebar"] {
+        background-color: #0d1322 !important;
+        border-right: 1px solid #1e293b !important;
+    }
+
+    /* Prominent, accessible Sidebar Collapse (<) and Expand (>) Buttons */
+    [data-testid="stSidebarCollapseButton"],
     [data-testid="stSidebarCollapsedControl"],
-    header [data-testid="collapsedControl"],
-    header button[aria-label*="sidebar" i],
-    header button[title*="sidebar" i] {
+    [data-testid="collapsedControl"],
+    button[data-testid="stExpandSidebarButton"] {
         display: flex !important;
         visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 100001 !important;
+    }
+    [data-testid="stSidebarCollapseButton"] button,
+    [data-testid="stSidebarCollapsedControl"] button,
+    [data-testid="collapsedControl"] button,
+    button[data-testid="stExpandSidebarButton"],
+    header button[data-testid="stBaseButton-headerNoPadding"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
         background-color: #1e293b !important;
         color: #38bdf8 !important;
-        border: 1px solid #334155 !important;
+        border: 1px solid #38bdf8 !important;
         border-radius: 8px !important;
-        margin-top: 4px !important;
-        margin-left: 8px !important;
+        padding: 4px 8px !important;
+        box-shadow: 0 0 10px rgba(56, 189, 248, 0.4) !important;
+        cursor: pointer !important;
         transition: all 0.2s ease !important;
-        z-index: 100000 !important;
     }
-    [data-testid="collapsedControl"]:hover,
-    [data-testid="stSidebarCollapsedControl"]:hover {
+    [data-testid="stSidebarCollapseButton"] button:hover,
+    [data-testid="stSidebarCollapsedControl"] button:hover,
+    [data-testid="collapsedControl"] button:hover,
+    button[data-testid="stExpandSidebarButton"]:hover,
+    header button[data-testid="stBaseButton-headerNoPadding"]:hover {
         background-color: #334155 !important;
-        color: #7dd3fc !important;
-        border-color: #38bdf8 !important;
+        box-shadow: 0 0 16px rgba(56, 189, 248, 0.7) !important;
     }
     
     /* Clean, spacious layout */
@@ -333,7 +369,10 @@ with tabs[0]:
 
         # Prominent Result Status Banner
         if status == "COMPLETED":
-            st.success(f"✅ **Workflow Completed Successfully** • Latency: `{duration} ms` • Ticket: `{state.get('ticket', {}).get('ticket_id', 'None')}`")
+            ticket_obj = state.get("ticket")
+            ticket_id = ticket_obj.get("ticket_id") if isinstance(ticket_obj, dict) else None
+            ticket_label = f"`{ticket_id}`" if ticket_id else "`None (No State Changes)`"
+            st.success(f"✅ **Workflow Completed Successfully** • Latency: `{duration} ms` • Ticket: {ticket_label}")
         elif status == "PENDING_APPROVAL":
             st.warning(f"⏳ **Workflow Paused for Human Approval** • Privileged access requests require manager authorization.")
         elif status == "CLARIFICATION_REQUIRED":
