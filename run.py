@@ -17,16 +17,16 @@ if hasattr(sys.stdout, "reconfigure"):
 def run_ui():
     """Launch the enterprise Streamlit UI."""
     print("\n" + "=" * 60)
-    print("⚡ Launching OpsPilot Enterprise Control Center...")
+    print("[INIT] Launching OpsPilot Enterprise Control Center...")
     print("=" * 60)
     cmd = [sys.executable, "-m", "streamlit", "run", "ui/streamlit_app.py", "--server.port=8501", "--theme.base=dark"]
     subprocess.run(cmd)
 
 
 def run_evals():
-    """Execute the full 21-test reliability benchmark."""
+    """Execute the full reliability benchmark."""
     print("\n" + "=" * 60)
-    print("📊 Executing OpsPilot 21-Test Reliability Benchmark Suite...")
+    print("[BENCHMARK] Executing OpsPilot Reliability Benchmark Suite...")
     print("=" * 60)
     from evals.runner import run_all_evaluations
     report = run_all_evaluations()
@@ -39,7 +39,7 @@ def run_evals():
 def run_tests():
     """Run pytest suite."""
     print("\n" + "=" * 60)
-    print("🧪 Running Pytest Test Suite...")
+    print("[TEST] Running Pytest Test Suite...")
     print("=" * 60)
     cmd = [sys.executable, "-m", "pytest", "-v", "tests"]
     subprocess.run(cmd)
@@ -48,7 +48,7 @@ def run_tests():
 def run_api():
     """Run FastAPI Enterprise Mock API on port 8000."""
     print("\n" + "=" * 60)
-    print("🔌 Starting Mock Enterprise REST API (Port 8000)...")
+    print("[API] Starting Mock Enterprise REST API (Port 8000)...")
     print("=" * 60)
     import uvicorn
     uvicorn.run("integrations.mock_api:app", host="127.0.0.1", port=8000, reload=True)
@@ -57,7 +57,7 @@ def run_api():
 def run_legacy():
     """Run Legacy HR Portal on port 8001."""
     print("\n" + "=" * 60)
-    print("🖥️ Starting Legacy HR Portal (Port 8001)...")
+    print("[RPA] Starting Legacy HR Portal (Port 8001)...")
     print("=" * 60)
     import uvicorn
     from rpa.legacy_app import app as legacy_app
