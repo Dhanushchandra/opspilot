@@ -71,6 +71,7 @@ def init_db():
         ("app_salesforce", "Salesforce", 0),
         ("app_slack", "Slack", 0),
         ("app_jira", "Jira", 0),
+        ("app_gong", "Gong", 0),
         ("app_github", "GitHub", 0),
         ("app_sap", "SAP", 0),
         ("app_finance_admin", "Finance Admin Portal", 1),
