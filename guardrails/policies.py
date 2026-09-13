@@ -147,9 +147,10 @@ def validate_catalog_and_duplicates(
     """
     Validate requested applications against catalog, department boundaries, and existing access:
     1. Reject applications not found in catalog.
-    2. Reject applications where employee's department is not permitted.
-    3. Skip applications the employee already has access to.
-    4. Return actions to perform and skipped/rejected reasons.
+    2. For GRANT: Reject applications where employee's department is not permitted.
+    3. For GRANT: Skip applications the employee already has access to.
+    4. For REVOKE: Skip applications the employee does not currently possess access to.
+    5. Return actions to perform and skipped/rejected reasons.
     """
     valid_catalog_ids = {app["id"]: app for app in catalog}
     existing_app_ids = {acc["id"] if isinstance(acc, dict) and "id" in acc else acc.get("application_id") for acc in existing_access}
@@ -163,9 +164,12 @@ def validate_catalog_and_duplicates(
         if not app_id:
             continue
 
+        action_type = str(item.get("action_type", "GRANT")).upper()
+
         # 1. Catalog check
         if app_id not in valid_catalog_ids:
             rejected_actions.append({
+                "action_type": action_type,
                 "application_id": app_id,
                 "reason": f"Application '{app_id}' does not exist in the enterprise catalog."
             })
@@ -173,33 +177,57 @@ def validate_catalog_and_duplicates(
 
         app_info = valid_catalog_ids[app_id]
 
-        # 2. Department boundary check
-        if employee_department:
-            dept_res = check_department_permission(app_id, employee_department)
-            if not dept_res["allowed"]:
-                rejected_actions.append({
+        if action_type == "REVOKE":
+            # Inverted check: If employee does NOT have access, skip revocation
+            if app_id not in existing_app_ids:
+                skipped_actions.append({
+                    "action_type": "REVOKE",
                     "application_id": app_id,
                     "application_name": app_info["name"],
-                    "reason": dept_res["reason"]
+                    "reason": f"Employee does not possess active access to '{app_info['name']}'. Revocation skipped."
                 })
                 continue
 
-        # 3. Duplicate check
-        if app_id in existing_app_ids:
-            skipped_actions.append({
+            # Approved for revocation
+            actions_to_execute.append({
+                "action_type": "REVOKE",
                 "application_id": app_id,
                 "application_name": app_info["name"],
-                "reason": f"Employee already possesses access to '{app_info['name']}'. Duplicate grant skipped."
+                "sensitive": bool(app_info.get("sensitive", 0)),
+                "reason": item.get("reason", "Revocation requested by user or policy")
             })
-            continue
 
-        # 4. Approved for execution
-        actions_to_execute.append({
-            "application_id": app_id,
-            "application_name": app_info["name"],
-            "sensitive": bool(app_info.get("sensitive", 0)),
-            "reason": item.get("reason", "Requested by role policy or user")
-        })
+        else:  # GRANT
+            # 2. Department boundary check
+            if employee_department:
+                dept_res = check_department_permission(app_id, employee_department)
+                if not dept_res["allowed"]:
+                    rejected_actions.append({
+                        "action_type": "GRANT",
+                        "application_id": app_id,
+                        "application_name": app_info["name"],
+                        "reason": dept_res["reason"]
+                    })
+                    continue
+
+            # 3. Duplicate check
+            if app_id in existing_app_ids:
+                skipped_actions.append({
+                    "action_type": "GRANT",
+                    "application_id": app_id,
+                    "application_name": app_info["name"],
+                    "reason": f"Employee already possesses access to '{app_info['name']}'. Duplicate grant skipped."
+                })
+                continue
+
+            # Approved for execution
+            actions_to_execute.append({
+                "action_type": "GRANT",
+                "application_id": app_id,
+                "application_name": app_info["name"],
+                "sensitive": bool(app_info.get("sensitive", 0)),
+                "reason": item.get("reason", "Requested by role policy or user")
+            })
 
     return {
         "actions_to_execute": actions_to_execute,

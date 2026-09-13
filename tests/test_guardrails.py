@@ -115,3 +115,30 @@ def test_department_permission_guardrail():
     assert any(a["application_id"] == "app_sap" for a in val["actions_to_execute"])
     # Salesforce rejected for Finance
     assert any(r["application_id"] == "app_salesforce" for r in val["rejected_actions"])
+
+
+def test_validate_revocation_guardrails():
+    catalog = [
+        {"id": "app_salesforce", "name": "Salesforce", "sensitive": 0},
+        {"id": "app_sap", "name": "SAP", "sensitive": 0}
+    ]
+    # Employee currently owns Salesforce, does not own SAP
+    existing_access = [{"id": "app_salesforce", "name": "Salesforce"}]
+
+    planned = [
+        {"application_id": "app_salesforce", "action_type": "REVOKE", "reason": "Offboarding"},
+        {"application_id": "app_sap", "action_type": "REVOKE", "reason": "Deprovisioning"}
+    ]
+
+    val = validate_catalog_and_duplicates(planned, catalog, existing_access=existing_access)
+
+    # Salesforce should execute revocation
+    assert len(val["actions_to_execute"]) == 1
+    assert val["actions_to_execute"][0]["application_id"] == "app_salesforce"
+    assert val["actions_to_execute"][0]["action_type"] == "REVOKE"
+
+    # SAP should be skipped because employee doesn't have it
+    assert len(val["skipped_actions"]) == 1
+    assert val["skipped_actions"][0]["application_id"] == "app_sap"
+    assert "does not possess active access" in val["skipped_actions"][0]["reason"]
+

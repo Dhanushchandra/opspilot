@@ -78,3 +78,36 @@ def test_approval_lifecycle():
     updated = database.update_approval_status(appr["approval_id"], "APPROVED", "Approved by VP")
     assert updated["status"] == "APPROVED"
     assert updated["comments"] == "Approved by VP"
+
+
+def test_revoke_access():
+    database.init_db(force_reset=True)
+    # Grant access first
+    database.grant_access("emp_002", "app_slack")
+    assert database.verify_access("emp_002", "app_slack")["verified"] is True
+
+    # Revoke access
+    revoked = database.revoke_access("emp_002", "app_slack")
+    assert revoked is True
+    assert database.verify_access("emp_002", "app_slack")["verified"] is False
+
+
+def test_update_ticket_status():
+    ticket = database.create_ticket(
+        "emp_003",
+        "Test Lifecycle Ticket",
+        "Initial creation",
+        "SAP"
+    )
+    assert ticket["status"] == "OPEN"
+
+    # Move to IN_PROGRESS
+    in_prog = database.update_ticket_status(ticket["ticket_id"], "IN_PROGRESS", "Assigned to engineer")
+    assert in_prog["status"] == "IN_PROGRESS"
+    assert "Assigned to engineer" in in_prog["actions_performed"]
+
+    # Close ticket
+    closed = database.update_ticket_status(ticket["ticket_id"], "CLOSED", "Work confirmed complete")
+    assert closed["status"] == "CLOSED"
+    assert "Work confirmed complete" in closed["actions_performed"]
+

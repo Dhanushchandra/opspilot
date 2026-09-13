@@ -54,6 +54,14 @@ def grant_access(employee_id: str, application_id: str) -> Dict[str, Any]:
 
 
 @mcp_server.tool()
+def revoke_access(employee_id: str, application_id: str) -> Dict[str, Any]:
+    """Revoke an application entitlement from an employee."""
+    logger.info(f"Tool call: revoke_access({employee_id}, {application_id})")
+    revoked = database.revoke_access(employee_id, application_id)
+    return {"revoked": revoked, "employee_id": employee_id, "application_id": application_id}
+
+
+@mcp_server.tool()
 def verify_access(employee_id: str, application_id: str) -> Dict[str, Any]:
     """Verify that an employee has active access to an application."""
     logger.info(f"Tool call: verify_access({employee_id}, {application_id})")
@@ -65,6 +73,16 @@ def create_ticket(employee_id: str, title: str, description: str, actions_perfor
     """Create an ITSM ticket documenting operations performed."""
     logger.info(f"Tool call: create_ticket({employee_id}, {title})")
     return database.create_ticket(employee_id, title, description, actions_performed)
+
+
+@mcp_server.tool()
+def update_ticket_status(ticket_id: str, status: str, resolution_notes: str = "") -> Dict[str, Any]:
+    """Update status of an ITSM ticket (OPEN, IN_PROGRESS, RESOLVED, CLOSED)."""
+    logger.info(f"Tool call: update_ticket_status({ticket_id}, {status})")
+    ticket = database.update_ticket_status(ticket_id, status, resolution_notes)
+    if not ticket:
+        return {"error": f"Ticket '{ticket_id}' not found."}
+    return ticket
 
 
 @mcp_server.tool()

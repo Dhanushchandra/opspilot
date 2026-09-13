@@ -161,7 +161,7 @@ def generate_3d_vector_space_figure(query_text: Optional[str] = None) -> go.Figu
             color="#ef4444",
             line=dict(color="#fef08a", width=3)
         ),
-        text=["📍 USER QUERY"],
+        text=["[QUERY VECTOR]"],
         textposition="bottom center",
         textfont=dict(size=12, color="#f87171", family="sans-serif"),
         hoverinfo="text",
@@ -173,7 +173,7 @@ def generate_3d_vector_space_figure(query_text: Optional[str] = None) -> go.Figu
     # Dark Space Nebula Styling
     fig.update_layout(
         title=dict(
-            text="🌌 High-Dimensional Semantic Vector Space (3D PCA Projection of RAG Policy Clusters)",
+            text="High-Dimensional Semantic Vector Space (3D PCA Projection of RAG Policy Clusters)",
             font=dict(color="#38bdf8", size=15)
         ),
         paper_bgcolor="#0b0f19",
@@ -234,7 +234,7 @@ def generate_cosine_similarity_bar_chart(query_text: Optional[str] = None) -> go
     ))
 
     fig.update_layout(
-        title=dict(text="🎯 Semantic Proximity Ranking", font=dict(color="#38bdf8", size=13)),
+        title=dict(text="Semantic Proximity Ranking (Cosine Similarity)", font=dict(color="#38bdf8", size=13)),
         paper_bgcolor="#0b0f19",
         plot_bgcolor="#0b0f19",
         xaxis=dict(range=[0, 100], gridcolor="#1e293b", zerolinecolor="#334155", ticksuffix="%", tickfont=dict(color="#94a3b8")),
@@ -247,23 +247,23 @@ def generate_cosine_similarity_bar_chart(query_text: Optional[str] = None) -> go
 
 def render_workflow_flowchart_html(trace: List[Dict[str, Any]], current_status: str) -> str:
     """
-    Generate an animated, interactive HTML/CSS state graph of the LangGraph agent workflow.
-    Active and completed nodes glow and show step telemetry.
+    Generate an interactive enterprise state graph of the LangGraph agent workflow.
+    Active and completed nodes show telemetry badges and state indicators.
     """
     # LangGraph standard sequence
     nodes = [
-        {"id": "START", "label": "Start", "icon": "⚡"},
-        {"id": "Security Inspection", "label": "Security & Guard", "icon": "🛡️"},
-        {"id": "Employee Identification", "label": "Identify Employee", "icon": "👤"},
-        {"id": "Policy Context Retrieval", "label": "Retrieve RAG Context", "icon": "📚"},
-        {"id": "Current State Inspection", "label": "Inspect Current State", "icon": "🔎"},
-        {"id": "Plan Generation", "label": "Generate Plan", "icon": "🧠"},
-        {"id": "Plan Validation", "label": "Validate & Filter", "icon": "✅"},
-        {"id": "Privileged Guardrail", "label": "Approval Gate", "icon": "🔐"},
-        {"id": "Access Provisioning", "label": "Execute Tools", "icon": "⚙️"},
-        {"id": "Entitlement Verification", "label": "Verify Entitlements", "icon": "🔍"},
-        {"id": "ITSM Ticketing", "label": "Create ITSM Ticket", "icon": "🎫"},
-        {"id": "END", "label": "Executive Report", "icon": "🏁"}
+        {"id": "START", "label": "Request Ingestion", "tag": "00 INGEST"},
+        {"id": "Security Inspection", "label": "Security Guardrail", "tag": "01 SEC-GUARD"},
+        {"id": "Employee Identification", "label": "Identity Resolution", "tag": "02 IAM-RESOLVE"},
+        {"id": "Policy Context Retrieval", "label": "Policy RAG Context", "tag": "03 RAG-SEARCH"},
+        {"id": "Current State Inspection", "label": "Current State & IAM", "tag": "04 STATE-AUDIT"},
+        {"id": "Plan Generation", "label": "Workflow Planner", "tag": "05 PLANNER"},
+        {"id": "Plan Validation", "label": "Catalog & Policy Gate", "tag": "06 VALIDATION"},
+        {"id": "Privileged Guardrail", "label": "Approval Gate", "tag": "07 AUTH-GATE"},
+        {"id": "Access Provisioning", "label": "Execute MCP & RPA", "tag": "08 EXECUTION"},
+        {"id": "Entitlement Verification", "label": "Verify Entitlements", "tag": "09 VERIFICATION"},
+        {"id": "ITSM Ticketing", "label": "ITSM Documentation", "tag": "10 ITSM-TICKET"},
+        {"id": "END", "label": "Executive Summary", "tag": "11 SUMMARY"}
     ]
 
     trace_map = {t["step"]: t for t in trace}
@@ -273,7 +273,6 @@ def render_workflow_flowchart_html(trace: List[Dict[str, Any]], current_status: 
         nid = node["id"]
         status = "NOT_REACHED"
         msg = "Pending execution"
-        duration = ""
 
         if nid == "START":
             status = "SUCCESS"
@@ -288,41 +287,51 @@ def render_workflow_flowchart_html(trace: List[Dict[str, Any]], current_status: 
                     msg = t["message"][:80] + "..." if len(t["message"]) > 80 else t["message"]
                     break
 
-        # Styling per status
+        # Enterprise corporate styling per status
         glow_color = "#334155"
         border_color = "#334155"
         bg_color = "#0f172a"
         text_color = "#64748b"
+        tag_bg = "#1e293b"
+        tag_color = "#94a3b8"
 
         if status == "SUCCESS":
-            glow_color = "rgba(16, 185, 129, 0.4)"
+            glow_color = "rgba(16, 185, 129, 0.3)"
             border_color = "#10b981"
             bg_color = "#064e3b"
             text_color = "#34d399"
+            tag_bg = "#047857"
+            tag_color = "#ffffff"
         elif status == "WARNING":
-            glow_color = "rgba(245, 158, 11, 0.4)"
+            glow_color = "rgba(245, 158, 11, 0.3)"
             border_color = "#f59e0b"
             bg_color = "#78350f"
             text_color = "#fbbf24"
+            tag_bg = "#b45309"
+            tag_color = "#ffffff"
         elif status in ["BLOCKED", "FAILED"]:
-            glow_color = "rgba(239, 68, 68, 0.5)"
+            glow_color = "rgba(239, 68, 68, 0.4)"
             border_color = "#ef4444"
             bg_color = "#7f1d1d"
             text_color = "#f87171"
+            tag_bg = "#b91c1c"
+            tag_color = "#ffffff"
         elif status == "SKIPPED":
-            glow_color = "rgba(148, 163, 184, 0.2)"
+            glow_color = "rgba(148, 163, 184, 0.15)"
             border_color = "#475569"
             bg_color = "#1e293b"
             text_color = "#cbd5e1"
+            tag_bg = "#334155"
+            tag_color = "#cbd5e1"
 
-        arrow = '<div style="color: #38bdf8; font-size: 16px; margin: 0 4px;">➔</div>' if idx < len(nodes) - 1 else ''
+        arrow = '<div style="color: #475569; font-weight: 700; font-size: 14px; margin: 0 5px;">→</div>' if idx < len(nodes) - 1 else ''
 
         card_html = (
             f'<div style="display:inline-flex;align-items:center;margin:4px 0;">'
-            f'<div style="background:{bg_color};border:1px solid {border_color};box-shadow:0 0 10px {glow_color};border-radius:8px;padding:6px 12px;min-width:130px;text-align:center;">'
-            f'<div style="font-size:15px;line-height:1.2;">{node["icon"]}</div>'
-            f'<div style="font-weight:600;font-size:11px;color:{text_color};margin-top:2px;white-space:nowrap;">{node["label"]}</div>'
-            f'<div style="font-size:9px;color:#94a3b8;margin-top:2px;">{status}</div>'
+            f'<div style="background:{bg_color};border:1px solid {border_color};box-shadow:0 0 8px {glow_color};border-radius:6px;padding:7px 12px;min-width:135px;text-align:center;">'
+            f'<div style="font-family:monospace;font-size:10px;font-weight:700;background:{tag_bg};color:{tag_color};padding:2px 6px;border-radius:3px;display:inline-block;letter-spacing:0.5px;">{node["tag"]}</div>'
+            f'<div style="font-weight:600;font-size:11px;color:{text_color};margin-top:4px;white-space:nowrap;">{node["label"]}</div>'
+            f'<div style="font-size:9px;color:#94a3b8;margin-top:2px;letter-spacing:0.5px;text-transform:uppercase;">{status}</div>'
             f'</div>'
             f'{arrow}'
             f'</div>'
@@ -331,7 +340,7 @@ def render_workflow_flowchart_html(trace: List[Dict[str, Any]], current_status: 
 
     nodes_str = "".join(nodes_html)
     full_html = (
-        f'<div style="background:#0b0f19;border:1px solid #1e293b;border-radius:10px;padding:12px 14px;overflow-x:auto;white-space:nowrap;margin-bottom:12px;">'
+        f'<div style="background:#0b0f19;border:1px solid #1e293b;border-radius:8px;padding:12px 14px;overflow-x:auto;white-space:nowrap;margin-bottom:12px;">'
         f'<div style="display:inline-flex;align-items:center;gap:3px;">'
         f'{nodes_str}'
         f'</div>'

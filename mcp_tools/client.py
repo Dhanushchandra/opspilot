@@ -16,12 +16,18 @@ TOOL_REGISTRY = {
     "get_employee_access": lambda args: database.get_employee_access(args["employee_id"]),
     "get_applications": lambda args: database.get_all_applications(),
     "grant_access": lambda args: database.grant_access(args["employee_id"], args["application_id"]),
+    "revoke_access": lambda args: database.revoke_access(args["employee_id"], args["application_id"]),
     "verify_access": lambda args: database.verify_access(args["employee_id"], args["application_id"]),
     "create_ticket": lambda args: database.create_ticket(
         args["employee_id"],
         args["title"],
         args.get("description", ""),
         args.get("actions_performed", "")
+    ),
+    "update_ticket_status": lambda args: database.update_ticket_status(
+        args["ticket_id"],
+        args["status"],
+        args.get("resolution_notes", "")
     ),
     "request_approval": lambda args: database.request_approval(
         args["employee_id"],

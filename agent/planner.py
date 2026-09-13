@@ -18,7 +18,8 @@ load_dotenv()
 
 class PlannedApplication(BaseModel):
     application_id: str = Field(description="Must match exact ID from enterprise catalog")
-    reason: str = Field(description="Reason access is required")
+    action_type: str = Field(default="GRANT", description="'GRANT' to assign access or 'REVOKE' to remove access")
+    reason: str = Field(description="Reason access is required or being revoked")
     is_privileged: bool = Field(default=False, description="Whether the app requires manager approval")
 
 
@@ -64,8 +65,12 @@ def heuristic_fallback_plan(
     dept = (employee.get("department", "") if employee else "").lower()
     role = (employee.get("role", "") if employee else "").lower()
 
+    # Detect revocation intent
+    is_revoke = any(kw in req_lower for kw in ["revoke", "remove", "deprovision", "delete access", "cancel access", "take back"])
+    action_type = "REVOKE" if is_revoke else "GRANT"
+
     # Detect legacy HR request
-    create_legacy = any(kw in req_lower for kw in ["legacy", "hr system", "legacy hr", "onboard"])
+    create_legacy = any(kw in req_lower for kw in ["legacy", "hr system", "legacy hr", "onboard"]) and not is_revoke
 
     # 1. Direct explicit mentions of applications
     for app_name, app_obj in catalog_map.items():
@@ -74,12 +79,13 @@ def heuristic_fallback_plan(
             if app_id not in [p.application_id for p in planned_apps]:
                 planned_apps.append(PlannedApplication(
                     application_id=app_id,
-                    reason=f"Explicitly requested in prompt: '{app_obj['name']}'",
+                    action_type=action_type,
+                    reason=f"{'Revocation' if action_type == 'REVOKE' else 'Access'} requested in prompt: '{app_obj['name']}'",
                     is_privileged=bool(app_obj.get("sensitive", 0))
                 ))
 
-    # 2. Department policy defaults if onboarding / bundle requested
-    if "onboard" in req_lower or "required" in req_lower or "policy" in req_lower:
+    # 2. Department policy defaults if onboarding / bundle requested (only for GRANT)
+    if not is_revoke and ("onboard" in req_lower or "required" in req_lower or "policy" in req_lower):
         if dept == "sales":
             # Sales standard: Salesforce, Slack, Jira
             for name in ["salesforce", "slack", "jira"]:
@@ -176,7 +182,13 @@ def generate_execution_plan(
                     raw_text = re.sub(r"```(?:json)?", "", raw_text).replace("```", "").strip()
 
                 parsed_json = json.loads(raw_text)
-                return PlanOutput.model_validate(parsed_json)
+                plan = PlanOutput.model_validate(parsed_json)
+                req_lower = request.lower()
+                is_revoke = any(kw in req_lower for kw in ["revoke", "remove", "deprovision", "delete access", "cancel access", "take back"])
+                if is_revoke:
+                    for app in plan.applications:
+                        app.action_type = "REVOKE"
+                return plan
             except Exception as e:
                 print(f"[Planner Warning] Model {model_name} error: {e}. Trying fallback or next model.")
                 continue

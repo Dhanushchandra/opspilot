@@ -102,7 +102,7 @@ def init_db(force_reset: bool = False):
     if count == 0 or force_reset:
         now = datetime.datetime.utcnow().isoformat()
 
-        # Seed Employees
+        # Seed Employees with realistic enterprise personnel (including Indian directory names)
         # Note: Alex Rivera & Alex Johnson allow testing ambiguous name resolution ("Alex")
         employees = [
             ("emp_001", "Sarah Thomas", "Sales", "Account Executive", "sarah.thomas@enterprise.com"),
@@ -110,6 +110,16 @@ def init_db(force_reset: bool = False):
             ("emp_003", "Priya Nair", "Finance", "Financial Analyst", "priya.nair@enterprise.com"),
             ("emp_004", "Alex Johnson", "Sales", "Sales Representative", "alex.johnson@enterprise.com"),
             ("emp_005", "Alex Rivera", "Engineering", "DevOps Engineer", "alex.rivera@enterprise.com"),
+            ("emp_006", "Aarav Sharma", "Engineering", "Staff Backend Architect", "aarav.sharma@enterprise.com"),
+            ("emp_007", "Ananya Iyer", "Finance", "Senior Financial Controller", "ananya.iyer@enterprise.com"),
+            ("emp_008", "Rohan Mehta", "Sales", "Enterprise Account Director", "rohan.mehta@enterprise.com"),
+            ("emp_009", "Sneha Patel", "Engineering", "Security Operations Engineer", "sneha.patel@enterprise.com"),
+            ("emp_010", "Vikram Malhotra", "Sales", "Regional Sales Lead", "vikram.malhotra@enterprise.com"),
+            ("emp_011", "Kavita Krishnan", "Finance", "Treasury Operations Manager", "kavita.krishnan@enterprise.com"),
+            ("emp_012", "Arjun Reddy", "Engineering", "Platform Reliability Lead", "arjun.reddy@enterprise.com"),
+            ("emp_013", "Meera Joshi", "Legal", "Corporate Compliance Counsel", "meera.joshi@enterprise.com"),
+            ("emp_014", "Rajesh Gupta", "Marketing", "Growth Operations Specialist", "rajesh.gupta@enterprise.com"),
+            ("emp_015", "Neha Kulkarni", "Sales", "Business Development Executive", "neha.kulkarni@enterprise.com"),
         ]
         cursor.executemany(
             "INSERT OR REPLACE INTO employees (id, name, department, role, email) VALUES (?, ?, ?, ?, ?);",
@@ -132,10 +142,22 @@ def init_db(force_reset: bool = False):
             applications
         )
 
-        # Sarah Thomas already has Slack to test duplicate access prevention
-        cursor.execute(
+        # Seed realistic initial access records (allows immediate testing of both duplicate skip and revocation)
+        initial_access = [
+            ("emp_001", "app_slack", now),
+            ("emp_002", "app_github", now),
+            ("emp_003", "app_sap", now),
+            ("emp_007", "app_sap", now),
+            ("emp_007", "app_slack", now),
+            ("emp_008", "app_salesforce", now),
+            ("emp_008", "app_gong", now),
+            ("emp_009", "app_github", now),
+            ("emp_009", "app_jira", now),
+            ("emp_010", "app_salesforce", now),
+        ]
+        cursor.executemany(
             "INSERT OR REPLACE INTO employee_access (employee_id, application_id, granted_at) VALUES (?, ?, ?);",
-            ("emp_001", "app_slack", now)
+            initial_access
         )
 
     conn.commit()
@@ -373,6 +395,27 @@ def get_all_tickets() -> List[Dict[str, Any]]:
     rows = conn.execute("SELECT * FROM tickets ORDER BY created_at DESC;").fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def update_ticket_status(ticket_id: str, new_status: str, resolution_notes: str = "") -> Optional[Dict[str, Any]]:
+    """Update status of an ITSM ticket (e.g. OPEN, IN_PROGRESS, RESOLVED, CLOSED) and append resolution notes."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    status_clean = new_status.strip().upper()
+    if resolution_notes.strip():
+        cursor.execute(
+            "UPDATE tickets SET status = ?, actions_performed = actions_performed || ' | Audit: ' || ? WHERE id = ?;",
+            (status_clean, resolution_notes.strip(), ticket_id)
+        )
+    else:
+        cursor.execute(
+            "UPDATE tickets SET status = ? WHERE id = ?;",
+            (status_clean, ticket_id)
+        )
+    conn.commit()
+    row = conn.execute("SELECT * FROM tickets WHERE id = ?;", (ticket_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 
 # -------------------------------------------------------------

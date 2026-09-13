@@ -13,6 +13,17 @@ class StepTrace(TypedDict):
     timestamp: str
 
 
+class FunctionCallRecord(TypedDict):
+    timestamp: str
+    node: str
+    function_name: str
+    module: str
+    input_params: Dict[str, Any]
+    guardrail_verdict: Optional[str]
+    output_summary: str
+    latency_ms: float
+
+
 class OpsPilotState(TypedDict):
     # User Request Context
     request: str
@@ -49,6 +60,9 @@ class OpsPilotState(TypedDict):
 
     # Ticketing
     ticket: Optional[Dict[str, Any]]
+
+    # Deep Telemetry & Function Call Stack
+    function_call_stack: List[FunctionCallRecord]
 
     # Final Output & Lifecycle
     final_summary: str
