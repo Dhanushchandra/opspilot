@@ -13,12 +13,19 @@ LEGACY_URL = "http://127.0.0.1:8001"
 _server_thread = None
 
 
+_server_verified = False
+
+
 def ensure_legacy_server_running():
     """Ensure the legacy server is running on port 8001; start in background thread if not."""
-    global _server_thread
+    global _server_thread, _server_verified
+    if _server_verified:
+        return True
+
     try:
-        res = requests.get(f"{LEGACY_URL}/health", timeout=1.0)
+        res = requests.get(f"{LEGACY_URL}/health", timeout=0.3)
         if res.status_code == 200:
+            _server_verified = True
             return True
     except Exception:
         pass
@@ -37,12 +44,13 @@ def ensure_legacy_server_running():
         _server_thread = threading.Thread(target=run_server, daemon=True)
         _server_thread.start()
 
-        # Wait up to 5 seconds for server to respond
-        for _ in range(25):
-            time.sleep(0.2)
+        # Wait up to 1 second for server to respond
+        for _ in range(10):
+            time.sleep(0.1)
             try:
-                res = requests.get(f"{LEGACY_URL}/health", timeout=0.5)
+                res = requests.get(f"{LEGACY_URL}/health", timeout=0.2)
                 if res.status_code == 200:
+                    _server_verified = True
                     return True
             except Exception:
                 pass

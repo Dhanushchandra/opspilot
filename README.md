@@ -8,7 +8,7 @@
 [![Tests](https://img.shields.io/badge/Tests-16%2F16%20Passed-brightgreen.svg)]()
 [![Evaluation](https://img.shields.io/badge/Evals-21%20Test%20Cases-success.svg)]()
 
-> **Production-grade Forward Deployed Engineer (FDE) portfolio project**: Demonstrates an enterprise AI operations agent capable of natural language understanding, RAG policy retrieval, deterministic plan validation, multi-system tool execution via MCP, human-in-the-loop approvals, Playwright browser automation for un-API-fied legacy portals, IAM entitlement verification, and automated ITSM ticketing.
+> **Production-grade Enterprise AI Automation Platform**: Demonstrates an enterprise AI operations agent capable of natural language understanding, RAG policy retrieval, deterministic plan validation, multi-system tool execution via MCP, human-in-the-loop approvals, Playwright browser automation for un-API-fied legacy portals, IAM entitlement verification, and automated ITSM ticketing.
 
 ---
 
@@ -265,7 +265,7 @@ The evaluation suite (`evals/cases.py`) measures OpsPilot's performance across 2
 
 ---
 
-## 💼 Forward Deployed Engineer (FDE) Competencies Demonstrated
+## 💼 Enterprise Engineering Capabilities Demonstrated
 
 1. **Enterprise Integration**: Bridging modern REST APIs, FastMCP protocol, and legacy web interfaces lacking APIs via Playwright.
 2. **Deterministic Agent Architecture**: Combining LangGraph state machines with Pydantic validation rather than relying on unstructured LLM chat loops.

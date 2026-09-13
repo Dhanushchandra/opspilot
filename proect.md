@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build a production-style portfolio project demonstrating the capabilities expected from a **Forward Deployed Engineer (FDE)** working with enterprise AI agents.
+Build a production-style portfolio project demonstrating the capabilities expected from an **Enterprise AI Solutions Engineer** working with enterprise AI agents.
 
 The project should demonstrate that an AI agent can understand natural-language enterprise requests, retrieve company policies/context, reason about the required workflow, interact with multiple enterprise systems through tools/MCP, handle sensitive actions with approval and guardrails, operate legacy applications through browser automation when APIs are unavailable, verify its own work, and evaluate reliability.
 
@@ -920,6 +920,6 @@ Verification
 Final execution report
 ```
 
-The final README should explain the architecture, design decisions, failure modes, evaluation methodology, and how this project demonstrates FDE capabilities.
+The final README should explain the architecture, design decisions, failure modes, evaluation methodology, and how this project demonstrates enterprise-grade autonomous AI operations.
 
 The priority is **working software over excessive abstraction**. Build incrementally, run tests after each major component, and keep the system locally runnable with one command wherever practical.

@@ -16,20 +16,32 @@ KNOWLEDGE_DIR = Path("knowledge")
 COLLECTION_NAME = "enterprise_policies"
 
 
+_genai_client_instance = None
+_chroma_collection_instance = None
+
+
 def get_genai_client() -> Optional[genai.Client]:
+    global _genai_client_instance
+    if _genai_client_instance is not None:
+        return _genai_client_instance
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
         try:
-            return genai.Client(api_key=api_key)
+            _genai_client_instance = genai.Client(api_key=api_key)
+            return _genai_client_instance
         except Exception:
             return None
     return None
 
 
 def get_chroma_collection():
+    global _chroma_collection_instance
+    if _chroma_collection_instance is not None:
+        return _chroma_collection_instance
     CHROMA_DIR.mkdir(parents=True, exist_ok=True)
     chroma_client = chromadb.PersistentClient(path=str(CHROMA_DIR))
-    return chroma_client.get_or_create_collection(name=COLLECTION_NAME)
+    _chroma_collection_instance = chroma_client.get_or_create_collection(name=COLLECTION_NAME)
+    return _chroma_collection_instance
 
 
 def load_policy_documents() -> List[Dict[str, Any]]:

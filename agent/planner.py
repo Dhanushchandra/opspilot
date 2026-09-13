@@ -29,11 +29,18 @@ class PlanOutput(BaseModel):
     rationale: str = Field(default="")
 
 
+_planner_client_instance = None
+
+
 def get_genai_client() -> Optional[genai.Client]:
+    global _planner_client_instance
+    if _planner_client_instance is not None:
+        return _planner_client_instance
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
         try:
-            return genai.Client(api_key=api_key)
+            _planner_client_instance = genai.Client(api_key=api_key)
+            return _planner_client_instance
         except Exception:
             return None
     return None
