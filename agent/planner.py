@@ -26,6 +26,7 @@ class PlannedApplication(BaseModel):
 class PlanOutput(BaseModel):
     applications: List[PlannedApplication] = Field(default_factory=list)
     create_legacy_hr: bool = Field(default=False)
+    remove_hr: bool = Field(default=False, description="Whether to remove the employee from HR systems")
     create_ticket: bool = Field(default=True)
     rationale: str = Field(default="")
 
@@ -65,12 +66,20 @@ def heuristic_fallback_plan(
     dept = (employee.get("department", "") if employee else "").lower()
     role = (employee.get("role", "") if employee else "").lower()
 
-    # Detect revocation intent
-    is_revoke = any(kw in req_lower for kw in ["revoke", "remove", "deprovision", "delete access", "cancel access", "take back"])
+    # Detect HR system removal intent
+    is_remove_hr = any(kw in req_lower for kw in [
+        "remove from hr", "remove user from hr", "remove employee from hr",
+        "delete from hr", "delete from hr system", "remove from hr system",
+        "offboard from hr", "remove hr record", "delete hr record",
+        "remove in hr", "remove from legacy hr", "remove user"
+    ]) or ("hr" in req_lower and any(kw in req_lower for kw in ["remove", "delete", "offboard", "deprovision"]))
+
+    # Detect general revocation intent
+    is_revoke = any(kw in req_lower for kw in ["revoke", "remove", "deprovision", "delete access", "cancel access", "take back"]) or is_remove_hr
     action_type = "REVOKE" if is_revoke else "GRANT"
 
-    # Detect legacy HR request
-    create_legacy = any(kw in req_lower for kw in ["legacy", "hr system", "legacy hr", "onboard"]) and not is_revoke
+    # Detect legacy HR creation request (only if not revoking or removing)
+    create_legacy = any(kw in req_lower for kw in ["legacy", "hr system", "legacy hr", "onboard"]) and not is_revoke and not is_remove_hr
 
     # 1. Direct explicit mentions of applications
     for app_name, app_obj in catalog_map.items():
@@ -84,8 +93,21 @@ def heuristic_fallback_plan(
                     is_privileged=bool(app_obj.get("sensitive", 0))
                 ))
 
-    # 2. Department policy defaults if onboarding / bundle requested (only for GRANT)
-    if not is_revoke and ("onboard" in req_lower or "required" in req_lower or "policy" in req_lower):
+    # 2. If removing employee from HR system, deprovision all their active entitlements
+    if is_remove_hr:
+        for acc in existing_access:
+            aid = acc["id"]
+            if aid not in [p.application_id for p in planned_apps]:
+                app_meta = next((c for c in catalog if c["id"] == aid), {"name": acc.get("name", aid)})
+                planned_apps.append(PlannedApplication(
+                    application_id=aid,
+                    action_type="REVOKE",
+                    reason=f"Offboarding deprovisioning: user removed from HR system",
+                    is_privileged=False
+                ))
+
+    # 3. Department policy defaults if onboarding / bundle requested (only for GRANT)
+    if not is_revoke and not is_remove_hr and ("onboard" in req_lower or "required" in req_lower or "policy" in req_lower):
         if dept == "sales":
             # Sales standard: Salesforce, Slack, Jira
             for name in ["salesforce", "slack", "jira"]:
@@ -131,12 +153,13 @@ def heuristic_fallback_plan(
                             is_privileged=False
                         ))
 
-    create_ticket = len(planned_apps) > 0 or create_legacy
+    create_ticket = len(planned_apps) > 0 or create_legacy or is_remove_hr
     return PlanOutput(
         applications=planned_apps,
         create_legacy_hr=create_legacy,
+        remove_hr=is_remove_hr,
         create_ticket=create_ticket,
-        rationale="Plan constructed from enterprise policy rules and explicit user requests."
+        rationale="Plan constructed from enterprise policy rules, HR status, and explicit user requests."
     )
 
 
@@ -184,7 +207,30 @@ def generate_execution_plan(
                 parsed_json = json.loads(raw_text)
                 plan = PlanOutput.model_validate(parsed_json)
                 req_lower = request.lower()
-                is_revoke = any(kw in req_lower for kw in ["revoke", "remove", "deprovision", "delete access", "cancel access", "take back"])
+
+                # Detect HR system removal intent
+                is_remove_hr = any(kw in req_lower for kw in [
+                    "remove from hr", "remove user from hr", "remove employee from hr",
+                    "delete from hr", "delete from hr system", "remove from hr system",
+                    "offboard from hr", "remove hr record", "delete hr record",
+                    "remove in hr", "remove from legacy hr", "remove user"
+                ]) or ("hr" in req_lower and any(kw in req_lower for kw in ["remove", "delete", "offboard", "deprovision"]))
+
+                is_revoke = any(kw in req_lower for kw in ["revoke", "remove", "deprovision", "delete access", "cancel access", "take back"]) or is_remove_hr
+
+                if is_remove_hr:
+                    plan.remove_hr = True
+                    plan.create_legacy_hr = False
+                    existing_ids = {a["id"] for a in existing_access}
+                    for aid in existing_ids:
+                        if aid not in [p.application_id for p in plan.applications]:
+                            plan.applications.append(PlannedApplication(
+                                application_id=aid,
+                                action_type="REVOKE",
+                                reason="Offboarding deprovisioning: user removed from HR system",
+                                is_privileged=False
+                            ))
+
                 if is_revoke:
                     for app in plan.applications:
                         app.action_type = "REVOKE"

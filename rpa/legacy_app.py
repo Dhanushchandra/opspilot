@@ -187,6 +187,43 @@ def create_employee(
     """
 
 
+@app.post("/employees/delete", response_class=HTMLResponse)
+def delete_employee_endpoint(employee_id: str = Form(...)):
+    removed = legacy_employees.pop(employee_id, None)
+    status_msg = "Employee removed successfully" if removed else "Employee record not found in legacy system"
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Employee Removed</title>
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }}
+            .card {{ max-width: 500px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 8px; border: 1px solid #334155; }}
+            h1 {{ color: #ef4444; font-size: 20px; }}
+            p {{ font-size: 15px; color: #cbd5e1; margin: 10px 0; }}
+            strong {{ color: #38bdf8; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1 id="success">{status_msg}</h1>
+            <p>Employee ID: <strong id="employee-id">{employee_id}</strong></p>
+            <div style="margin-top: 20px;">
+                <a href="/employees" style="color: #38bdf8;">View All Records</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+@app.delete("/api/legacy/employees/{employee_id}")
+def api_delete_employee(employee_id: str):
+    removed = legacy_employees.pop(employee_id, None)
+    return {"status": "ok" if removed else "not_found", "employee_id": employee_id}
+
+
 @app.get("/employees", response_class=HTMLResponse)
 def employee_list():
     rows = ""
@@ -197,6 +234,12 @@ def employee_list():
             <td style="padding: 10px; border: 1px solid #334155;">{emp['name']}</td>
             <td style="padding: 10px; border: 1px solid #334155;">{emp['department']}</td>
             <td style="padding: 10px; border: 1px solid #334155;">{emp['role']}</td>
+            <td style="padding: 10px; border: 1px solid #334155; text-align: center;">
+                <form action="/employees/delete" method="post" style="margin:0;">
+                    <input type="hidden" name="employee_id" value="{emp['employee_id']}">
+                    <button id="delete-{emp['employee_id']}" type="submit" style="background:#ef4444;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:bold;">Delete</button>
+                </form>
+            </td>
         </tr>
         """
 
@@ -208,7 +251,7 @@ def employee_list():
         <title>Legacy Employee Database</title>
         <style>
             body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }}
-            .container {{ max-width: 800px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 8px; border: 1px solid #334155; }}
+            .container {{ max-width: 850px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 8px; border: 1px solid #334155; }}
             h1 {{ color: #38bdf8; font-size: 22px; }}
             table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
             th {{ background: #0f172a; padding: 12px; text-align: left; color: #94a3b8; border: 1px solid #334155; }}
@@ -226,6 +269,7 @@ def employee_list():
                         <th>Name</th>
                         <th>Department</th>
                         <th>Role</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>

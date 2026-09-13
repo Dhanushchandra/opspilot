@@ -11,9 +11,10 @@ CRITICAL OPERATIONAL RULES:
 3. If the user asks to revoke, remove, delete, or deprovision an application or access, set "action_type" to "REVOKE". For adding/granting access, set "action_type" to "GRANT".
 4. Strictly adhere to Enterprise Policies retrieved for the employee's department and role.
 5. Flag privileged/sensitive applications (such as Sales Admin Portal or Finance Admin Portal) as requiring approval.
-6. If the request asks to update or create an employee in the legacy HR system, set "create_legacy_hr" to true.
-7. Always set "create_ticket" to true if any access modification or legacy action will be taken.
-8. Return ONLY valid JSON adhering exactly to the requested schema.
+6. If the request asks to remove, delete, offboard, or deprovision an employee from the HR system (or legacy HR), set "remove_hr" to true. If the request asks to update or create an employee in the legacy HR system, set "create_legacy_hr" to true.
+7. If an employee is being offboarded or removed from the HR system, ensure "action_type" is set to "REVOKE" for any active application entitlements they hold.
+8. Always set "create_ticket" to true if any access modification or HR action will be taken.
+9. Return ONLY valid JSON adhering exactly to the requested schema.
 """
 
 PLANNER_USER_PROMPT = """User Request:
@@ -42,6 +43,7 @@ Produce a structured JSON execution plan matching this JSON schema:
         }}
     ],
     "create_legacy_hr": boolean,
+    "remove_hr": boolean,
     "create_ticket": boolean,
     "rationale": "string concise explanation of the planned workflow"
 }}

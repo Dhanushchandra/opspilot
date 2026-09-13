@@ -43,6 +43,7 @@ class OpsPilotState(TypedDict):
     existing_access: List[Dict[str, Any]]
     catalog: List[Dict[str, Any]]
     legacy_required: bool
+    remove_hr: bool
 
     # Planning & Validation
     raw_plan: Dict[str, Any]

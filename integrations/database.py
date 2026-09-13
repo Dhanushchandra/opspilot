@@ -14,7 +14,7 @@ DB_PATH = Path("opspilot.db")
 
 def get_db_connection() -> sqlite3.Connection:
     """Create a thread-safe connection to the SQLite database with row factory and WAL mode."""
-    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=10.0)
+    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")
@@ -25,143 +25,143 @@ def get_db_connection() -> sqlite3.Connection:
 def init_db(force_reset: bool = False):
     """Initialize database tables and seed initial data if empty or requested."""
     conn = get_db_connection()
-    cursor = conn.cursor()
+    try:
+        cursor = conn.cursor()
 
-    if force_reset:
         cursor.executescript("""
-            DROP TABLE IF EXISTS execution_logs;
-            DROP TABLE IF EXISTS approvals;
-            DROP TABLE IF EXISTS tickets;
-            DROP TABLE IF EXISTS employee_access;
-            DROP TABLE IF EXISTS applications;
-            DROP TABLE IF EXISTS employees;
+            CREATE TABLE IF NOT EXISTS employees (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                department TEXT NOT NULL,
+                role TEXT NOT NULL,
+                email TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS applications (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                sensitive INTEGER DEFAULT 0,
+                description TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS employee_access (
+                employee_id TEXT NOT NULL,
+                application_id TEXT NOT NULL,
+                granted_at TEXT NOT NULL,
+                PRIMARY KEY (employee_id, application_id),
+                FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+                FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS tickets (
+                id TEXT PRIMARY KEY,
+                employee_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'OPEN',
+                created_at TEXT NOT NULL,
+                actions_performed TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS approvals (
+                id TEXT PRIMARY KEY,
+                employee_id TEXT NOT NULL,
+                application_id TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'PENDING',
+                requested_at TEXT NOT NULL,
+                reviewed_at TEXT,
+                comments TEXT,
+                FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+                FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS execution_logs (
+                id TEXT PRIMARY KEY,
+                request_id TEXT NOT NULL,
+                step TEXT NOT NULL,
+                status TEXT NOT NULL,
+                details TEXT,
+                timestamp TEXT NOT NULL
+            );
         """)
 
-    cursor.executescript("""
-        CREATE TABLE IF NOT EXISTS employees (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            department TEXT NOT NULL,
-            role TEXT NOT NULL,
-            email TEXT
-        );
+        if force_reset:
+            cursor.execute("DELETE FROM execution_logs;")
+            cursor.execute("DELETE FROM approvals;")
+            cursor.execute("DELETE FROM tickets;")
+            cursor.execute("DELETE FROM employee_access;")
+            cursor.execute("DELETE FROM applications;")
+            cursor.execute("DELETE FROM employees;")
 
-        CREATE TABLE IF NOT EXISTS applications (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            sensitive INTEGER DEFAULT 0,
-            description TEXT
-        );
 
-        CREATE TABLE IF NOT EXISTS employee_access (
-            employee_id TEXT NOT NULL,
-            application_id TEXT NOT NULL,
-            granted_at TEXT NOT NULL,
-            PRIMARY KEY (employee_id, application_id),
-            FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
-            FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
-        );
+        # Check if employees already exist
+        cursor.execute("SELECT COUNT(*) FROM employees;")
+        count = cursor.fetchone()[0]
 
-        CREATE TABLE IF NOT EXISTS tickets (
-            id TEXT PRIMARY KEY,
-            employee_id TEXT NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT,
-            status TEXT NOT NULL DEFAULT 'OPEN',
-            created_at TEXT NOT NULL,
-            actions_performed TEXT,
-            FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
-        );
+        if count == 0 or force_reset:
+            now = datetime.datetime.utcnow().isoformat()
 
-        CREATE TABLE IF NOT EXISTS approvals (
-            id TEXT PRIMARY KEY,
-            employee_id TEXT NOT NULL,
-            application_id TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'PENDING',
-            requested_at TEXT NOT NULL,
-            reviewed_at TEXT,
-            comments TEXT,
-            FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
-            FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
-        );
+            # Seed Employees with realistic enterprise personnel (including Indian directory names)
+            # Note: Alex Rivera & Alex Johnson allow testing ambiguous name resolution ("Alex")
+            employees = [
+                ("emp_001", "Sarah Thomas", "Sales", "Account Executive", "sarah.thomas@enterprise.com"),
+                ("emp_002", "Rahul Sharma", "Engineering", "Software Engineer", "rahul.sharma@enterprise.com"),
+                ("emp_003", "Priya Nair", "Finance", "Financial Analyst", "priya.nair@enterprise.com"),
+                ("emp_004", "Alex Johnson", "Sales", "Sales Representative", "alex.johnson@enterprise.com"),
+                ("emp_005", "Alex Rivera", "Engineering", "DevOps Engineer", "alex.rivera@enterprise.com"),
+                ("emp_006", "Aarav Sharma", "Engineering", "Staff Backend Architect", "aarav.sharma@enterprise.com"),
+                ("emp_007", "Ananya Iyer", "Finance", "Senior Financial Controller", "ananya.iyer@enterprise.com"),
+                ("emp_008", "Rohan Mehta", "Sales", "Enterprise Account Director", "rohan.mehta@enterprise.com"),
+                ("emp_009", "Sneha Patel", "Engineering", "Security Operations Engineer", "sneha.patel@enterprise.com"),
+                ("emp_010", "Vikram Malhotra", "Sales", "Regional Sales Lead", "vikram.malhotra@enterprise.com"),
+                ("emp_011", "Kavita Krishnan", "Finance", "Treasury Operations Manager", "kavita.krishnan@enterprise.com"),
+                ("emp_012", "Arjun Reddy", "Engineering", "Platform Reliability Lead", "arjun.reddy@enterprise.com"),
+                ("emp_013", "Meera Joshi", "Legal", "Corporate Compliance Counsel", "meera.joshi@enterprise.com"),
+                ("emp_014", "Rajesh Gupta", "Marketing", "Growth Operations Specialist", "rajesh.gupta@enterprise.com"),
+                ("emp_015", "Neha Kulkarni", "Sales", "Business Development Executive", "neha.kulkarni@enterprise.com"),
+            ]
+            cursor.executemany(
+                "INSERT OR REPLACE INTO employees (id, name, department, role, email) VALUES (?, ?, ?, ?, ?);",
+                employees
+            )
 
-        CREATE TABLE IF NOT EXISTS execution_logs (
-            id TEXT PRIMARY KEY,
-            request_id TEXT NOT NULL,
-            step TEXT NOT NULL,
-            status TEXT NOT NULL,
-            details TEXT,
-            timestamp TEXT NOT NULL
-        );
-    """)
+            # Seed Applications
+            applications = [
+                ("app_salesforce", "Salesforce", 0, "Enterprise CRM for Sales"),
+                ("app_slack", "Slack", 0, "Enterprise Team Chat & Collaboration"),
+                ("app_jira", "Jira", 0, "Issue Tracking & Project Management"),
+                ("app_gong", "Gong", 0, "Revenue Intelligence & Sales Call Analysis"),
+                ("app_github", "GitHub", 0, "Source Code Repository & Version Control"),
+                ("app_sap", "SAP", 0, "Enterprise Resource Planning for Finance"),
+                ("app_sales_admin", "Sales Admin Portal", 1, "Privileged administrative console for Sales"),
+                ("app_finance_admin", "Finance Admin Portal", 1, "Privileged administrative console for Finance"),
+            ]
+            cursor.executemany(
+                "INSERT OR REPLACE INTO applications (id, name, sensitive, description) VALUES (?, ?, ?, ?);",
+                applications
+            )
 
-    # Check if employees already exist
-    cursor.execute("SELECT COUNT(*) FROM employees;")
-    count = cursor.fetchone()[0]
+            # Seed realistic initial access records (allows immediate testing of both duplicate skip and revocation)
+            initial_access = [
+                ("emp_001", "app_slack", now),
+                ("emp_002", "app_github", now),
+                ("emp_003", "app_sap", now),
+                ("emp_007", "app_sap", now),
+                ("emp_007", "app_slack", now),
+                ("emp_008", "app_salesforce", now),
+                ("emp_008", "app_gong", now),
+                ("emp_009", "app_github", now),
+                ("emp_009", "app_jira", now),
+                ("emp_010", "app_salesforce", now),
+            ]
+            cursor.executemany(
+                "INSERT OR REPLACE INTO employee_access (employee_id, application_id, granted_at) VALUES (?, ?, ?);",
+                initial_access
+            )
 
-    if count == 0 or force_reset:
-        now = datetime.datetime.utcnow().isoformat()
-
-        # Seed Employees with realistic enterprise personnel (including Indian directory names)
-        # Note: Alex Rivera & Alex Johnson allow testing ambiguous name resolution ("Alex")
-        employees = [
-            ("emp_001", "Sarah Thomas", "Sales", "Account Executive", "sarah.thomas@enterprise.com"),
-            ("emp_002", "Rahul Sharma", "Engineering", "Software Engineer", "rahul.sharma@enterprise.com"),
-            ("emp_003", "Priya Nair", "Finance", "Financial Analyst", "priya.nair@enterprise.com"),
-            ("emp_004", "Alex Johnson", "Sales", "Sales Representative", "alex.johnson@enterprise.com"),
-            ("emp_005", "Alex Rivera", "Engineering", "DevOps Engineer", "alex.rivera@enterprise.com"),
-            ("emp_006", "Aarav Sharma", "Engineering", "Staff Backend Architect", "aarav.sharma@enterprise.com"),
-            ("emp_007", "Ananya Iyer", "Finance", "Senior Financial Controller", "ananya.iyer@enterprise.com"),
-            ("emp_008", "Rohan Mehta", "Sales", "Enterprise Account Director", "rohan.mehta@enterprise.com"),
-            ("emp_009", "Sneha Patel", "Engineering", "Security Operations Engineer", "sneha.patel@enterprise.com"),
-            ("emp_010", "Vikram Malhotra", "Sales", "Regional Sales Lead", "vikram.malhotra@enterprise.com"),
-            ("emp_011", "Kavita Krishnan", "Finance", "Treasury Operations Manager", "kavita.krishnan@enterprise.com"),
-            ("emp_012", "Arjun Reddy", "Engineering", "Platform Reliability Lead", "arjun.reddy@enterprise.com"),
-            ("emp_013", "Meera Joshi", "Legal", "Corporate Compliance Counsel", "meera.joshi@enterprise.com"),
-            ("emp_014", "Rajesh Gupta", "Marketing", "Growth Operations Specialist", "rajesh.gupta@enterprise.com"),
-            ("emp_015", "Neha Kulkarni", "Sales", "Business Development Executive", "neha.kulkarni@enterprise.com"),
-        ]
-        cursor.executemany(
-            "INSERT OR REPLACE INTO employees (id, name, department, role, email) VALUES (?, ?, ?, ?, ?);",
-            employees
-        )
-
-        # Seed Applications
-        applications = [
-            ("app_salesforce", "Salesforce", 0, "Enterprise CRM for Sales"),
-            ("app_slack", "Slack", 0, "Enterprise Team Chat & Collaboration"),
-            ("app_jira", "Jira", 0, "Issue Tracking & Project Management"),
-            ("app_gong", "Gong", 0, "Revenue Intelligence & Sales Call Analysis"),
-            ("app_github", "GitHub", 0, "Source Code Repository & Version Control"),
-            ("app_sap", "SAP", 0, "Enterprise Resource Planning for Finance"),
-            ("app_sales_admin", "Sales Admin Portal", 1, "Privileged administrative console for Sales"),
-            ("app_finance_admin", "Finance Admin Portal", 1, "Privileged administrative console for Finance"),
-        ]
-        cursor.executemany(
-            "INSERT OR REPLACE INTO applications (id, name, sensitive, description) VALUES (?, ?, ?, ?);",
-            applications
-        )
-
-        # Seed realistic initial access records (allows immediate testing of both duplicate skip and revocation)
-        initial_access = [
-            ("emp_001", "app_slack", now),
-            ("emp_002", "app_github", now),
-            ("emp_003", "app_sap", now),
-            ("emp_007", "app_sap", now),
-            ("emp_007", "app_slack", now),
-            ("emp_008", "app_salesforce", now),
-            ("emp_008", "app_gong", now),
-            ("emp_009", "app_github", now),
-            ("emp_009", "app_jira", now),
-            ("emp_010", "app_salesforce", now),
-        ]
-        cursor.executemany(
-            "INSERT OR REPLACE INTO employee_access (employee_id, application_id, granted_at) VALUES (?, ?, ?);",
-            initial_access
-        )
-
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
 
 
 # -------------------------------------------------------------
@@ -183,7 +183,7 @@ def get_employee_by_id(employee_id: str) -> Optional[Dict[str, Any]]:
 
 
 def find_employees_by_name(name_query: str) -> List[Dict[str, Any]]:
-    """Search employees by exact match or substring match (case-insensitive)."""
+    """Search employees by exact match, ID match, or substring match (case-insensitive)."""
     conn = get_db_connection()
     query_clean = name_query.strip().lower()
     all_emps = conn.execute("SELECT * FROM employees;").fetchall()
@@ -195,9 +195,10 @@ def find_employees_by_name(name_query: str) -> List[Dict[str, Any]]:
     for r in all_emps:
         emp = dict(r)
         emp_name_lower = emp["name"].lower()
-        if emp_name_lower == query_clean:
+        emp_id_lower = emp["id"].lower()
+        if emp_name_lower == query_clean or emp_id_lower == query_clean:
             exact_matches.append(emp)
-        elif query_clean in emp_name_lower or any(part in emp_name_lower for part in query_clean.split()):
+        elif query_clean in emp_name_lower or emp_id_lower in query_clean or any(part in emp_name_lower for part in query_clean.split() if len(part) > 2):
             partial_matches.append(emp)
 
     return exact_matches if exact_matches else partial_matches
@@ -217,13 +218,17 @@ def create_employee(employee_id: str, name: str, department: str, role: str, ema
 
 
 def delete_employee(employee_id: str) -> bool:
+    """Delete an employee and their application entitlements from the database."""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM employees WHERE id = ?;", (employee_id,))
-    conn.commit()
-    deleted = cursor.rowcount > 0
-    conn.close()
-    return deleted
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM employee_access WHERE employee_id = ?;", (employee_id,))
+        cursor.execute("DELETE FROM approvals WHERE employee_id = ?;", (employee_id,))
+        cursor.execute("DELETE FROM employees WHERE id = ?;", (employee_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
 
 
 # -------------------------------------------------------------
@@ -246,13 +251,15 @@ def get_application_by_id(app_id: str) -> Optional[Dict[str, Any]]:
 
 def create_application(app_id: str, name: str, sensitive: int = 0, description: str = "") -> Dict[str, Any]:
     conn = get_db_connection()
-    conn.execute(
-        "INSERT INTO applications (id, name, sensitive, description) VALUES (?, ?, ?, ?);",
-        (app_id, name, sensitive, description)
-    )
-    conn.commit()
-    conn.close()
-    return {"id": app_id, "name": name, "sensitive": sensitive, "description": description}
+    try:
+        conn.execute(
+            "INSERT INTO applications (id, name, sensitive, description) VALUES (?, ?, ?, ?);",
+            (app_id, name, sensitive, description)
+        )
+        conn.commit()
+        return {"id": app_id, "name": name, "sensitive": sensitive, "description": description}
+    finally:
+        conn.close()
 
 
 # -------------------------------------------------------------
@@ -274,60 +281,59 @@ def get_employee_access(employee_id: str) -> List[Dict[str, Any]]:
 
 def grant_access(employee_id: str, application_id: str) -> Dict[str, Any]:
     conn = get_db_connection()
-    # Check employee and application exist
-    emp = conn.execute("SELECT * FROM employees WHERE id = ?;", (employee_id,)).fetchone()
-    app = conn.execute("SELECT * FROM applications WHERE id = ?;", (application_id,)).fetchone()
+    try:
+        emp = conn.execute("SELECT * FROM employees WHERE id = ?;", (employee_id,)).fetchone()
+        app = conn.execute("SELECT * FROM applications WHERE id = ?;", (application_id,)).fetchone()
 
-    if not emp:
-        conn.close()
-        raise ValueError(f"Employee {employee_id} not found")
-    if not app:
-        conn.close()
-        raise ValueError(f"Application {application_id} not found")
+        if not emp:
+            raise ValueError(f"Employee {employee_id} not found")
+        if not app:
+            raise ValueError(f"Application {application_id} not found")
 
-    existing = conn.execute(
-        "SELECT * FROM employee_access WHERE employee_id = ? AND application_id = ?;",
-        (employee_id, application_id)
-    ).fetchone()
+        existing = conn.execute(
+            "SELECT * FROM employee_access WHERE employee_id = ? AND application_id = ?;",
+            (employee_id, application_id)
+        ).fetchone()
 
-    if existing:
-        conn.close()
+        if existing:
+            return {
+                "status": "already_granted",
+                "message": f"Employee already has access to {app['name']}",
+                "employee_id": employee_id,
+                "application_id": application_id,
+                "application": app["name"]
+            }
+
+        now = datetime.datetime.utcnow().isoformat()
+        conn.execute(
+            "INSERT INTO employee_access (employee_id, application_id, granted_at) VALUES (?, ?, ?);",
+            (employee_id, application_id, now)
+        )
+        conn.commit()
+
         return {
-            "status": "already_granted",
-            "message": f"Employee already has access to {app['name']}",
+            "status": "granted",
             "employee_id": employee_id,
             "application_id": application_id,
-            "application": app["name"]
+            "application": app["name"],
+            "granted_at": now
         }
-
-    now = datetime.datetime.utcnow().isoformat()
-    conn.execute(
-        "INSERT INTO employee_access (employee_id, application_id, granted_at) VALUES (?, ?, ?);",
-        (employee_id, application_id, now)
-    )
-    conn.commit()
-    conn.close()
-
-    return {
-        "status": "granted",
-        "employee_id": employee_id,
-        "application_id": application_id,
-        "application": app["name"],
-        "granted_at": now
-    }
+    finally:
+        conn.close()
 
 
 def revoke_access(employee_id: str, application_id: str) -> bool:
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "DELETE FROM employee_access WHERE employee_id = ? AND application_id = ?;",
-        (employee_id, application_id)
-    )
-    conn.commit()
-    revoked = cursor.rowcount > 0
-    conn.close()
-    return revoked
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM employee_access WHERE employee_id = ? AND application_id = ?;",
+            (employee_id, application_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
 
 
 def verify_access(employee_id: str, application_id: str) -> Dict[str, Any]:
@@ -362,25 +368,27 @@ def verify_access(employee_id: str, application_id: str) -> Dict[str, Any]:
 
 def create_ticket(employee_id: str, title: str, description: str, actions_performed: str = "") -> Dict[str, Any]:
     conn = get_db_connection()
-    ticket_id = "INC-" + str(uuid.uuid4())[:8].upper()
-    now = datetime.datetime.utcnow().isoformat()
+    try:
+        ticket_id = "INC-" + str(uuid.uuid4())[:8].upper()
+        now = datetime.datetime.utcnow().isoformat()
 
-    conn.execute(
-        "INSERT INTO tickets (id, employee_id, title, description, status, created_at, actions_performed) VALUES (?, ?, ?, ?, ?, ?, ?);",
-        (ticket_id, employee_id, title, description, "OPEN", now, actions_performed)
-    )
-    conn.commit()
-    conn.close()
+        conn.execute(
+            "INSERT INTO tickets (id, employee_id, title, description, status, created_at, actions_performed) VALUES (?, ?, ?, ?, ?, ?, ?);",
+            (ticket_id, employee_id, title, description, "OPEN", now, actions_performed)
+        )
+        conn.commit()
 
-    return {
-        "ticket_id": ticket_id,
-        "employee_id": employee_id,
-        "title": title,
-        "description": description,
-        "status": "OPEN",
-        "created_at": now,
-        "actions_performed": actions_performed
-    }
+        return {
+            "ticket_id": ticket_id,
+            "employee_id": employee_id,
+            "title": title,
+            "description": description,
+            "status": "OPEN",
+            "created_at": now,
+            "actions_performed": actions_performed
+        }
+    finally:
+        conn.close()
 
 
 def get_ticket(ticket_id: str) -> Optional[Dict[str, Any]]:
@@ -400,22 +408,24 @@ def get_all_tickets() -> List[Dict[str, Any]]:
 def update_ticket_status(ticket_id: str, new_status: str, resolution_notes: str = "") -> Optional[Dict[str, Any]]:
     """Update status of an ITSM ticket (e.g. OPEN, IN_PROGRESS, RESOLVED, CLOSED) and append resolution notes."""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    status_clean = new_status.strip().upper()
-    if resolution_notes.strip():
-        cursor.execute(
-            "UPDATE tickets SET status = ?, actions_performed = actions_performed || ' | Audit: ' || ? WHERE id = ?;",
-            (status_clean, resolution_notes.strip(), ticket_id)
-        )
-    else:
-        cursor.execute(
-            "UPDATE tickets SET status = ? WHERE id = ?;",
-            (status_clean, ticket_id)
-        )
-    conn.commit()
-    row = conn.execute("SELECT * FROM tickets WHERE id = ?;", (ticket_id,)).fetchone()
-    conn.close()
-    return dict(row) if row else None
+    try:
+        cursor = conn.cursor()
+        status_clean = new_status.strip().upper()
+        if resolution_notes.strip():
+            cursor.execute(
+                "UPDATE tickets SET status = ?, actions_performed = actions_performed || ' | Audit: ' || ? WHERE id = ?;",
+                (status_clean, resolution_notes.strip(), ticket_id)
+            )
+        else:
+            cursor.execute(
+                "UPDATE tickets SET status = ? WHERE id = ?;",
+                (status_clean, ticket_id)
+            )
+        conn.commit()
+        row = conn.execute("SELECT * FROM tickets WHERE id = ?;", (ticket_id,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
 
 
 # -------------------------------------------------------------

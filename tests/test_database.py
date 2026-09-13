@@ -111,3 +111,17 @@ def test_update_ticket_status():
     assert closed["status"] == "CLOSED"
     assert "Work confirmed complete" in closed["actions_performed"]
 
+
+def test_delete_employee():
+    # Create test employee with access
+    database.create_employee("emp_temp_999", "Temp Employee", "Sales", "Sales Rep")
+    database.grant_access("emp_temp_999", "app_slack")
+    assert database.get_employee_by_id("emp_temp_999") is not None
+    assert len(database.get_employee_access("emp_temp_999")) > 0
+
+    # Delete employee
+    deleted = database.delete_employee("emp_temp_999")
+    assert deleted is True
+    assert database.get_employee_by_id("emp_temp_999") is None
+    assert len(database.get_employee_access("emp_temp_999")) == 0
+

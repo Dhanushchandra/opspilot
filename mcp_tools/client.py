@@ -8,7 +8,7 @@ import json
 from typing import Dict, Any, Optional
 
 from integrations import database
-from rpa.legacy_automation import create_employee_in_legacy_system
+from rpa.legacy_automation import create_employee_in_legacy_system, remove_employee_from_legacy_system
 
 # In-process tool registry matching MCP server tools
 TOOL_REGISTRY = {
@@ -40,7 +40,14 @@ TOOL_REGISTRY = {
         args["name"],
         args["department"],
         args["role"]
-    )
+    ),
+    "remove_employee_legacy": lambda args: remove_employee_from_legacy_system(
+        args["employee_id"]
+    ),
+    "delete_employee_hr": lambda args: {
+        "deleted": database.delete_employee(args["employee_id"]),
+        "employee_id": args["employee_id"]
+    }
 }
 
 

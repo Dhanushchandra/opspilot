@@ -106,7 +106,8 @@ def identify_employee_node(state: OpsPilotState) -> Dict[str, Any]:
     matched = []
     for emp in all_employees:
         name_lower = emp["name"].lower()
-        if name_lower in req_lower:
+        emp_id_lower = emp["id"].lower()
+        if name_lower in req_lower or emp_id_lower in req_lower:
             matched.append(emp)
         else:
             parts = [p for p in name_lower.split() if len(p) > 2]
@@ -285,6 +286,7 @@ def create_plan_node(state: OpsPilotState) -> Dict[str, Any]:
     return {
         "raw_plan": planned_dict,
         "legacy_required": planned_dict.get("create_legacy_hr", False),
+        "remove_hr": planned_dict.get("remove_hr", False),
         "function_call_stack": call_stack,
         "trace": state["trace"] + [_create_trace(
             "Plan Generation", "SUCCESS", summary, planned_dict
@@ -502,6 +504,49 @@ def execute_actions_node(state: OpsPilotState) -> Dict[str, Any]:
             latency_ms=rpa_res["latency_ms"]
         ))
 
+    # 3. Execute HR Deprovisioning (Legacy HR Portal & Central Enterprise Directory)
+    remove_hr = state.get("remove_hr", False)
+    if remove_hr and emp:
+        # A. Legacy HR deprovisioning via Playwright RPA
+        traces.append(_create_trace(
+            "Legacy HR Deprovisioning", "RUNNING", f"Initiating browser deprovisioning for {emp['name']} in legacy HR portal..."
+        ))
+        rpa_del_res = execute_tool("remove_employee_legacy", {
+            "employee_id": emp["id"]
+        })
+        executions.append(rpa_del_res)
+        del_status = "SUCCESS" if rpa_del_res["status"] == "SUCCESS" else "FAILED"
+        traces.append(_create_trace(
+            "Legacy HR Deprovisioning", del_status, f"Legacy HR record deprovisioned for {emp['name']} ({rpa_del_res['latency_ms']}ms)", rpa_del_res
+        ))
+        call_records.append(_create_call_record(
+            node="execute_actions",
+            function_name="execute_tool('remove_employee_legacy')",
+            module="mcp_tools.client",
+            input_params={"employee_id": emp["id"]},
+            guardrail_verdict="RPA_DEPROVISIONED" if rpa_del_res.get("result", {}).get("verified") else "RPA_FAILED",
+            output_summary=f"Playwright Legacy Removal: {rpa_del_res['status']}",
+            latency_ms=rpa_del_res["latency_ms"]
+        ))
+
+        # B. Central Enterprise HR database removal
+        db_del_res = execute_tool("delete_employee_hr", {
+            "employee_id": emp["id"]
+        })
+        executions.append(db_del_res)
+        traces.append(_create_trace(
+            "Central HR Deprovisioning", "SUCCESS", f"Employee {emp['name']} ({emp['id']}) record removed from Enterprise Directory database", db_del_res
+        ))
+        call_records.append(_create_call_record(
+            node="execute_actions",
+            function_name="execute_tool('delete_employee_hr')",
+            module="mcp_tools.client",
+            input_params={"employee_id": emp["id"]},
+            guardrail_verdict="REMOVED_FROM_HR",
+            output_summary=f"Employee purged from HR database",
+            latency_ms=db_del_res["latency_ms"]
+        ))
+
     call_stack = state.get("function_call_stack", []) + call_records
 
     return {
@@ -563,6 +608,25 @@ def verify_execution_node(state: OpsPilotState) -> Dict[str, Any]:
                 latency_ms=v_res["latency_ms"]
             ))
 
+    remove_hr = state.get("remove_hr", False)
+    if remove_hr and emp:
+        emp_check = database.get_employee_by_id(emp["id"])
+        purged = emp_check is None
+        v_status = "SUCCESS" if purged else "FAILED"
+        msg = f"Verified HR deprovisioning for {emp['name']} ({emp['id']}): directory_purged={purged}"
+        traces.append(_create_trace(
+            "HR System Verification", v_status, msg, {"employee_id": emp["id"], "purged": purged}
+        ))
+        call_records.append(_create_call_record(
+            node="verify_execution",
+            function_name="database.get_employee_by_id",
+            module="integrations.database",
+            input_params={"employee_id": emp["id"]},
+            guardrail_verdict="PURGED_CONFIRMED" if purged else "PURGE_FAILED",
+            output_summary=msg,
+            latency_ms=0.5
+        ))
+
     call_stack = state.get("function_call_stack", []) + call_records
 
     return {
@@ -578,9 +642,10 @@ def handle_ticketing_node(state: OpsPilotState) -> Dict[str, Any]:
     emp = state.get("employee")
     actions = state.get("approved_actions", [])
     legacy = state.get("legacy_required", False)
+    remove_hr = state.get("remove_hr", False)
 
     # If no state changes occurred, avoid creating unnecessary tickets
-    if not actions and not legacy:
+    if not actions and not legacy and not remove_hr:
         rec = _create_call_record(
             node="handle_ticketing",
             function_name="create_ticket",
@@ -609,14 +674,26 @@ def handle_ticketing_node(state: OpsPilotState) -> Dict[str, Any]:
     if legacy:
         action_descriptions.append("- Created legacy HR employee record")
 
-    title = f"IT Operations Fulfillment: Access Request for {emp['name']}"
+    if remove_hr:
+        action_descriptions.append("- Deprovisioned employee record from Enterprise HR Database and Legacy HR Portal")
+
+    if remove_hr:
+        title = f"[OFFBOARDING] HR Deprovisioning & Access Revocation: {emp['name']}"
+    else:
+        title = f"IT Operations Fulfillment: Access Request for {emp['name']}"
     description = f"Request: {state['request']}\n\nActions Performed:\n" + "\n".join(action_descriptions)
+
+    actions_summary = ", ".join(
+        [f"{a.get('action_type', 'GRANT').upper()}: {a['application_name']}" for a in actions]
+        + (["Legacy HR Created"] if legacy else [])
+        + (["HR Deprovisioned"] if remove_hr else [])
+    )
 
     ticket_res = execute_tool("create_ticket", {
         "employee_id": emp["id"],
         "title": title,
         "description": description,
-        "actions_performed": ", ".join([f"{a.get('action_type', 'GRANT').upper()}: {a['application_name']}" for a in actions] + (["Legacy HR"] if legacy else []))
+        "actions_performed": actions_summary
     })
 
     ticket = ticket_res["result"] if ticket_res["status"] == "SUCCESS" else None
@@ -651,6 +728,7 @@ def generate_response_node(state: OpsPilotState) -> Dict[str, Any]:
     skipped = state.get("skipped_actions", [])
     rejected = state.get("rejected_actions", [])
     legacy = state.get("legacy_required", False)
+    remove_hr = state.get("remove_hr", False)
     ticket = state.get("ticket")
     pending = state.get("pending_approvals", [])
 
@@ -682,6 +760,9 @@ def generate_response_node(state: OpsPilotState) -> Dict[str, Any]:
     lines.append("")
 
     lines.append("### Actions Performed")
+    if remove_hr:
+        lines.append(f"[REVOKED] **Enterprise HR System**: Employee record for {emp['name']} (`{emp['id']}`) deprovisioned and purged from database & legacy portal.")
+
     if legacy:
         lines.append("[COMPLETED] Legacy HR Portal: Employee record created and verified via Playwright RPA.")
 
@@ -693,7 +774,7 @@ def generate_response_node(state: OpsPilotState) -> Dict[str, Any]:
                 lines.append(f"[REVOKED] **{a['application_name']}**: Entitlement deprovisioned and verified")
             else:
                 lines.append(f"[PROVISIONED] **{a['application_name']}**: Provisioned and entitlement verified{priv}")
-    elif not legacy:
+    elif not legacy and not remove_hr:
         lines.append("*No new access modifications required.*")
 
     if skipped:
@@ -837,6 +918,7 @@ def run_opspilot(request: str, auto_approve: bool = True) -> OpsPilotState:
         "existing_access": [],
         "catalog": [],
         "legacy_required": False,
+        "remove_hr": False,
         "raw_plan": {},
         "validated_actions": [],
         "skipped_actions": [],

@@ -9,7 +9,7 @@ from typing import Dict, Any, List
 from mcp.server.mcpserver import MCPServer
 
 from integrations import database
-from rpa.legacy_automation import create_employee_in_legacy_system
+from rpa.legacy_automation import create_employee_in_legacy_system, remove_employee_from_legacy_system
 
 # Configure logging to stderr only so stdout remains clean for MCP JSON-RPC protocol
 logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -112,6 +112,21 @@ def create_employee_legacy(employee_id: str, name: str, department: str, role: s
         department=department,
         role=role
     )
+
+
+@mcp_server.tool()
+def remove_employee_legacy(employee_id: str) -> Dict[str, Any]:
+    """Remove an employee record from the legacy HR system via Playwright browser automation."""
+    logger.info(f"Tool call: remove_employee_legacy({employee_id})")
+    return remove_employee_from_legacy_system(employee_id=employee_id)
+
+
+@mcp_server.tool()
+def delete_employee_hr(employee_id: str) -> Dict[str, Any]:
+    """Delete an employee and their entitlements from the central HR enterprise directory."""
+    logger.info(f"Tool call: delete_employee_hr({employee_id})")
+    deleted = database.delete_employee(employee_id)
+    return {"deleted": deleted, "employee_id": employee_id}
 
 
 if __name__ == "__main__":
